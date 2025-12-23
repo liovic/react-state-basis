@@ -3,6 +3,12 @@
 
 It observes how state variables change over time to identify strong correlations that indicate architectural redundancy.
 
+**TL;DR:**  
+React-Basis watches your state like a mathematician: every `useState`, `useReducer`, and even `useEffect`-driven update becomes a tracked signal that turns into a time-series vector. When two signals move identically over time, they're collinear (redundant) - and Basis instantly flags it with location, math details, and a copy-paste refactor to derived state.
+
+It observes how state variables change over time to identify strong correlations that indicate architectural redundancy.
+
+
 **React-basis** is a real-time architectural auditing engine that treats a React application as a **dynamic system of discrete-time vectors**. Instead of static linting, which only analyzes syntax, Basis monitors the **State Space Topology** of your application to detect mathematical redundancy (collinearity) and synchronization anti-patterns in real-time.
 
 Inspired by the work of **Sheldon Axler** (*"Linear Algebra Done Right"*), Basis aims to enforce a mathematically optimal "Source of Truth" by ensuring your application state forms a **Basis**.
