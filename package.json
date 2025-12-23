@@ -1,0 +1,62 @@
+{
+  "name": "react-basis",
+  "version": "1.0.0",
+  "description": "A linear algebra-powered React architectural tool that detects redundant state and synchronization anti-patterns by modeling state transitions as vectors in a basis.",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "plugin"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    },
+    "./plugin": "./dist/plugin.js"
+  },
+  "scripts": {
+    "build": "tsup",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "react",
+    "hooks",
+    "state",
+    "debugging",
+    "devtools",
+    "linear-algebra",
+    "redundancy",
+    "architecture",
+    "useState",
+    "useEffect",
+    "babel-plugin",
+    "optimization",
+    "formal-verification",
+    "redundancy-detection",
+    "babel-plugin",
+    "architecture"
+  ],
+  "author": "Your Name <your.email@example.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yourusername/react-basis.git"
+  },
+  "homepage": "https://github.com/yourusername/react-basis#readme",
+  "bugs": {
+    "url": "https://github.com/yourusername/react-basis/issues"
+  },
+  "peerDependencies": {
+    "react": ">=16.8"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.26.0",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "tsup": "^8.3.5",
+    "typescript": "^5.7.0"
+  }
+}
