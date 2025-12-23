@@ -9,4 +9,5 @@ You'll see beautiful, actionable diagnostic output in the browser console — in
 ```bash
 cd example
 npm install
+npm link react-basis # links the local react-basis package
 npm run dev
