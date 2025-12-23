@@ -25,7 +25,8 @@ Mathematically, your state variables $\{v_1, v_2, \dots, v_n\}$ should form a **
 
 ![Basis System Health Report](example/screenshots/health-report.png)
 
-→ Try the full interactive demo here: [/example](./example)
+Try the full interactive demo here: [/example](./example)
+
 ---
 
 ## 🚀 Setup & Integration
