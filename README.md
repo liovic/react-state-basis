@@ -67,12 +67,11 @@ Every state transition is intercepted. Basis groups updates occurring within a *
 *   `0` = State remained stagnant.
 
 ### 3. The Analysis Layer (The Heuristic)
-In pure Linear Algebra, proving independence for $N$ variables requires solving the equation $a_1v_1 + \dots + a_nv_n = 0$. Performing $O(n^3)$ matrix operations in a browser runtime for 100+ variables would be computationally prohibitive.
+In pure Linear Algebra, proving linear independence for $N$ variables requires solving the system $a_1v_1 + \dots + a_nv_n = 0$. Using algorithms like Gaussian elimination or SVD to determine the **Rank** of the state matrix has a computational complexity of $O(N^3)$. Running this in a browser runtime for every state update would be prohibitively expensive.
 
-To maintain real-time performance, Basis uses **Cosine Similarity** as a high-speed heuristic ($O(n)$) to detect **collinearity**:
+To maintain real-time performance, Basis-JS uses **Cosine Similarity** as a high-speed heuristic ($O(D)$, where $D$ is the vector dimension) to detect **pairwise collinearity**:
 
 $$ \text{similarity} = \cos(\theta) = \frac{\mathbf{A} \cdot \mathbf{B}}{\Vert \mathbf{A} \Vert \Vert \mathbf{B} \Vert} $$
-
 
 If $\cos(\theta) \approx 1.00$, the vectors are collinear (linearly dependent), and the engine triggers a redundancy alert.
 
