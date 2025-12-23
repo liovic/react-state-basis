@@ -71,7 +71,8 @@ In pure Linear Algebra, proving independence for $N$ variables requires solving 
 
 To maintain real-time performance, Basis uses **Cosine Similarity** as a high-speed heuristic ($O(n)$) to detect **collinearity**:
 
-$$ \text{similarity} = \cos(\theta) = \frac{\mathbf{A} \cdot \mathbf{B}}{\|\mathbf{A}\| \|\mathbf{B}\|} $$
+$$ \text{similarity} = \cos(\theta) = \frac{\mathbf{A} \cdot \mathbf{B}}{\Vert \mathbf{A} \Vert \Vert \mathbf{B} \Vert} $$
+
 
 If $\cos(\theta) \approx 1.00$, the vectors are collinear (linearly dependent), and the engine triggers a redundancy alert.
 
