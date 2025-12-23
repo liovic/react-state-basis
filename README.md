@@ -3,7 +3,7 @@
 
 **React-basis** is a real-time architectural auditing engine that treats a React application as a **dynamic system of discrete-time vectors**. Instead of static linting, which only analyzes syntax, Basis monitors the **State Space Topology** of your application to detect mathematical redundancy (collinearity) and synchronization anti-patterns in real-time.
 
-Inspired by the work of **Sheldon Axler** (*"Linear Algebra Done Right"*), React-Basis aims to enforce a mathematically optimal "Source of Truth" by ensuring your application state forms a **Linearly Independent Basis**.
+Inspired by the work of **Sheldon Axler** (*"Linear Algebra Done Right"*), Basis aims to enforce a mathematically optimal "Source of Truth" by ensuring your application state forms a **Basis**.
 
 ---
 
@@ -18,26 +18,58 @@ Mathematically, your state variables $\{v_1, v_2, \dots, v_n\}$ should form a **
 
 ---
 
-## 🚀 Technical Architecture
+## 🚀 Setup & Integration
 
-Basis utilizes a three-tier instrumentation pipeline to audit your system without manual labeling:
+To enable the mathematical monitoring of your application, follow these two steps:
 
-### 1. The Compiler Layer (AST Transformation)
-A **Babel plugin** performs static analysis on your source code during the build process. It identifies calls to `useState`, `useMemo`, `useEffect`, and `createContext`, injecting metadata—specifically the **filename** and **variable name**—directly into the runtime. This transforms an anonymous execution graph into an **instrumented neural map**.
+### 1. Initialize the Basis Monitor
+Wrap your application root (e.g., `main.tsx` or `App.tsx`) with the `BasisProvider`. Setting `debug={true}` enables the real-time diagnostic dashboard and the visual system status monitor.
 
-### 2. The Runtime Layer (Signal Interception)
-Basis provides drop-in wrappers for standard React hooks. Every state transition is intercepted by the **Basis Engine**:
-*   **System Ticks:** Updates within a **16ms window** (one animation frame) are grouped into a single "System Tick."
+```tsx
+import { BasisProvider } from 'react-basis';
+
+export default function Root() {
+  return (
+    <BasisProvider debug={true}>
+       <App />
+    </BasisProvider>
+  );
+}
+```
+
+### 2. Use Drop-in Replacement Imports
+Replace your standard React hook imports with `react-basis`. This allows the engine to instrument your state updates without changing your component logic.
+
+```tsx
+// ❌ Change this:
+// import { useState, useEffect } from 'react';
+
+// ✅ To this:
+import { useState, useEffect, useMemo, useContext } from 'react-basis';
+
+function MyComponent() {
+  const [data, setData] = useState([]); // Automatically vectorized and tracked
+}
+```
+
+---
+
+## 🕵️‍♂️ Technical Architecture
+
+Basis utilizes a three-tier instrumentation pipeline to audit your system:
+
+1.  **The Compiler Layer (Babel AST):** A build-time plugin performs static analysis, injecting the **filename** and **variable name** directly into the runtime calls. This transforms an anonymous execution graph into a **structured state map**.
+2.  **The Runtime Layer:** Every state transition is intercepted. Basis groups updates occurring within a **16ms window** into a single "System Tick" and maps each variable to a vector in **$\mathbb{R}^{50}$**.
 *   **Discrete Signal Mapping:** Each state variable is mapped to a vector in **$\mathbb{R}^{50}$**.
     *   `1` = State transition occurred in this tick.
     *   `0` = State remained stagnant.
+3.  **The Analysis Layer:** 
+    In pure Linear Algebra, proving independence for $N$ variables requires solving the equation $a_1v_1 + \dots + a_nv_n = 0$ via Gaussian elimination or Singular Value Decomposition (SVD). Performing $O(n^3)$ matrix operations in a browser runtime for 100+ variables would be computationally prohibitive.
 
-### 3. The Analysis Layer (Cosine Similarity)
-To avoid the computational cost of solving large systems of linear equations in a browser, Basis uses **Cosine Similarity** as a heuristic for linear dependence:
-
-$$ \text{similarity} = \cos(\theta) = \frac{\mathbf{A} \cdot \mathbf{B}}{\|\mathbf{A}\| \|\mathbf{B}\|} $$
-
-If $\cos(\theta) \approx 1.00$, the vectors are collinear. The engine then triggers an architectural alert.
+    To maintain real-time performance, Basis uses **Cosine Similarity** as a high-speed heuristic ($O(n)$) to detect **collinearity**:
+    It calculates the **Cosine Similarity** ($\cos \theta$) between updates:
+    $$ \text{similarity} = \cos(\theta) = \frac{\mathbf{A} \cdot \mathbf{B}}{\|\mathbf{A}\| \|\mathbf{B}\|} $$
+    If $\cos(\theta) \approx 1.00$, the variables are collinear, and Basis triggers a redundancy alert.
 
 ---
 
@@ -47,62 +79,62 @@ Developers often manually sync related states, creating a redundant dimension in
 
 ### ❌ Redundant Basis (State Bloat)
 ```tsx
-// AuthProvider.tsx
 const [user, setUser] = useState(null);
-const [isLoggedIn, setIsLoggedIn] = useState(false);
+const [isLogged, setIsLogged] = useState(false);
 
-const login = (data) => {
-  setUser(data);
-  setIsLoggedIn(true); // ⚠️ REDUNDANCY: Always updated in sync with 'user'
+const onLogin = (userData) => {
+  setUser(userData);
+  setIsLogged(true); // ⚠️ BASIS ALERT: Always updated in sync with 'user'
 };
 ```
-**Basis Engine Analysis:**
-The Engine observes that every time `user` transitions, `isLoggedIn` follows. Their vectors in the 50D space are identical.
-> **Alert:** `REDUNDANCY DETECTED: "user" & "isLoggedIn" are collinear (cos θ ≈ 1.00)`.
+**Engine Analysis:** The Engine calculates that `user` and `isLogged` are perfectly synchronized. It warns you that you are using two dimensions to describe a 1D problem.
 
 ### ✅ Orthogonal Basis (Optimal Design)
-Basis suggests a **Projection**—transforming a basis vector into a derived value without increasing dimensionality.
-
+Basis suggests a **Projection**—transforming a basis vector into a derived value.
 ```tsx
-// AuthProvider.tsx
-const [user, setUser] = useState(null); // The only independent dimension
-
-// isLoggedIn becomes a mathematical projection (Derived State)
-const isLoggedIn = useMemo(() => !!user, [user]); 
+const [user, setUser] = useState(null); 
+const isLogged = useMemo(() => !!user, [user]); // Mathematically clean
 ```
 
 ---
 
-## ✨ Features
+## 🖥️ Diagnostic Dashboard
 
-*   **🕵️‍♂️ Content-Agnostic Auditing:** Basis does not care *what* your data is. It only cares *when* it moves. It identifies logical links purely through temporal synchronization.
-*   **📊 Neural Health Reports:** Generates a **State Correlation Matrix** of your entire app. It calculates an **Efficiency Score** based on the rank of your state transition matrix.
-*   **🛡️ Infinite Loop Circuit Breaker:** If a state vector oscillates at high frequency, the engine halts the update to prevent the browser thread from freezing.
-*   **💡 Causal Link Detection:** Tracks which `useEffect` triggered which `useState`, identifying "cascading renders" where data flows through effects instead of linear projections.
+Basis provides high-end diagnostic feedback directly in your browser console:
 
----
-
-## 🖥️ Cyberpunk Diagnostic Dashboard
-
-Basis provides a high-end diagnostic UI directly in your browser console:
-*   **📍 Location Tracking:** Tells you exactly which files and variables are causing the bloat.
-*   **🛠️ Live Refactor Suggestions:** Provides dark-themed code blocks you can copy-paste to fix your architecture.
-*   **🔬 Mathematical Proofs:** Collapsible sections showing the raw vector data and Axler-based basis theory.
+*   **📍 Location Tracking:** Identifies exact files and variable names causing redundancy.
+*   **🛠️ Refactor Snippets:** Provides dark-themed code blocks you can copy-paste to fix your state architecture.
+*   **📊 System Health Matrix:** Call `printBasisReport()` to see your **Efficiency Score** and the full **Correlation Matrix** of your application.
 
 ---
 
-## 🔄 Zero-Cost Production Strategy
+## ✨ Key Features
 
-Basis is a **Development-Time Infrastructure**. 
-Because the API is identical to native React, you can point your imports back to `'react'` in production using a simple build-time alias. Your production bundle remains 100% standard React, but your code is **guaranteed** to be mathematically optimal.
+*   **🕵️‍♂️ Content-Agnostic:** Identifies logical links through temporal synchronization, not data types.
+*   **🛡️ Circuit Breaker:** Halts high-frequency state oscillations (Infinite Loops) to protect the browser thread.
+*   **💡 Causal Detective:** Tracks causality chains from `useEffect` to `useState` to identify cascading renders.
+*   **🔄 Zero Lock-in:** Simply point your imports back to `'react'` in production. Basis is a **Development-time verification infrastructure**.
 
 ---
 
 ## 🎓 Mathematical Inspiration
+
+### 📜 The Basis Theorem
+According to Axler (*Linear Algebra Done Right, Definition 2.27*):
+
+> A **basis** of $V$ is a list of vectors in $V$ that is **linearly independent** and **spans** $V$.
+
+To satisfy this theorem in the context of application state:
+
+1.  **Linear Independence:** No state variable in the list can be expressed as a linear combination of the others. If a state $v_n$ can be derived from $\{v_1, \dots, v_{n-1}\}$, the list is linearly dependent and contains redundancy.
+2.  **Spanning the Space:** The list of state variables must contain enough information to represent every possible configuration of the user interface.
+
+**React-Basis** ensures that your state list is a true Basis by identifying and flagging vectors that fail the test of linear independence.
+
 > *"Linear algebra is the study of linear maps on finite-dimensional vector spaces."*  
 > — **Sheldon Axler**
 
-Basis-JS bridges the gap between abstract algebra and UI engineering. By ensuring your Application State forms an **Orthogonal Basis**, we build software that is inherently more stable, efficient, and easier to reason about.
+React-Basis bridges the gap between abstract algebra and UI engineering. By ensuring your application state forms an **Orthogonal Basis**, we build software that is inherently more stable, efficient, and easier to reason about.
 
 ---
 *Developed by LP*  
