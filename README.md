@@ -75,7 +75,7 @@ function MyComponent() {
 
 ## 🕵️‍♂️ Technical Architecture
 
-Basis utilizes a three-tier instrumentation pipeline to audit your system:
+React-State-Basis utilizes a three-tier instrumentation pipeline to audit your system:
 
 ### 1. The Compiler Layer (Babel AST)
 A build-time plugin performs static analysis, injecting the **filename** and **variable name** directly into the runtime calls. This transforms an anonymous execution graph into a **structured state map**.
@@ -84,6 +84,8 @@ A build-time plugin performs static analysis, injecting the **filename** and **v
 Every state transition is intercepted. Basis groups updates occurring within a **16ms window** into a single "System Tick." Each state variable is mapped to a vector in $\mathbb{R}^{50}$.
 *   `1` = State transition occurred in this tick.
 *   `0` = State remained stagnant.
+
+React-State-Basis does not compare state values. It analyzes the timing and synchronization of updates, treating each state variable as a discrete activation signal over time.
 
 ### 3. The Analysis Layer (The Heuristic)
 In pure Linear Algebra, proving linear independence for $N$ variables requires solving the system $a_1v_1 + \dots + a_nv_n = 0$. Using algorithms like Gaussian elimination or SVD to determine the **Rank** of the state matrix has a computational complexity of $O(N^3)$. Running this in a browser runtime for every state update would be prohibitively expensive.
