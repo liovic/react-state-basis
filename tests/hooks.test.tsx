@@ -3,14 +3,14 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { 
-  useState, 
-  useMemo, 
-  useEffect, 
-  useReducer, 
-  createContext, 
-  useContext, 
-  __test__ 
+import {
+  useState,
+  useMemo,
+  useEffect,
+  useReducer,
+  createContext,
+  useContext,
+  __test__
 } from '../src/hooks';
 import { BasisProvider } from '../src/context';
 
@@ -36,22 +36,22 @@ describe('Hooks Deep Coverage', () => {
   });
 
   it('useMemo: logs, memoizes and handles undefined deps', () => {
-    const spy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const spy = vi.spyOn(console, 'log').mockImplementation(() => { });
     const { result } = renderHook(() => useMemo(() => 42, undefined, 'm'), { wrapper });
-    
+
     expect(result.current).toBe(42);
     expect(spy).toHaveBeenCalledWith(expect.stringContaining('Valid Projection'), expect.any(String));
     spy.mockRestore();
   });
 
   it('useEffect: tracks causality and handles undefined deps', () => {
-    const spy = vi.spyOn(console, 'groupCollapsed').mockImplementation(() => {});
+    const spy = vi.spyOn(console, 'groupCollapsed').mockImplementation(() => { });
     renderHook(() => {
       const [, s] = useState(0, 't');
       useEffect(() => { s(1); }, undefined, 'e');
     }, { wrapper });
 
-    expect(spy).toHaveBeenCalledWith(expect.stringContaining('CAUSAL LINK'), expect.any(String));
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining('BASIS | CAUSALITY'), expect.any(String));
     spy.mockRestore();
   });
 
@@ -59,7 +59,7 @@ describe('Hooks Deep Coverage', () => {
     it('handles standard initialization (2 args + label)', () => {
       const reducer = (s: number) => s + 1;
       const { result } = renderHook(() => useReducer(reducer, 0, 'standard_label'), { wrapper });
-      
+
       act(() => result.current[1]({}));
       expect(result.current[0]).toBe(1);
       expect(__test__.history.has('standard_label')).toBe(true);
@@ -69,7 +69,7 @@ describe('Hooks Deep Coverage', () => {
       const reducer = (s: number) => s + 1;
       const initFn = (arg: number) => arg + 10;
       const { result } = renderHook(() => useReducer(reducer, 0, initFn, 'lazy_label'), { wrapper });
-      
+
       expect(result.current[0]).toBe(10);
       act(() => result.current[1]({}));
       expect(result.current[0]).toBe(11);

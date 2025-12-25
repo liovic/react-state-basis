@@ -25,7 +25,7 @@ describe('Basis System Integration', () => {
       });
     }
 
-    expect(groupSpy).toHaveBeenCalledWith(expect.stringContaining('REDUNDANCY DETECTED'), expect.any(String));
+    expect(groupSpy).toHaveBeenCalledWith(expect.stringContaining('DIMENSION COLLAPSE DETECTED'), expect.any(String));
     groupSpy.mockRestore();
   });
 });

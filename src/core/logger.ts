@@ -1,15 +1,36 @@
 // src/core/logger.ts
 
 const STYLES = {
-  header: "background: #f39c12; color: white; font-weight: bold; padding: 4px; border-radius: 4px;",
-  boot: "background: #27ae60; color: white; padding: 2px 5px; border-radius: 3px 0 0 3px; font-weight: bold;",
-  bootSecondary: "background: #2ecc71; color: white; padding: 2px 5px; border-radius: 0 3px 3px 0;",
-  problemLabel: "background: #ff4757; color: white; padding: 0 4px; border-radius: 3px; font-family: monospace; font-weight: bold;",
-  fixHeader: "font-weight: bold; color: #27ae60;",
-  codeBlock: "background: #1e1e1e; color: #d4d4d4; padding: 15px; display: block; margin: 10px 0; border-left: 5px solid #27ae60; font-family: 'Fira Code', monospace; line-height: 22px; border-radius: 4px;",
-  hintHeader: "background: #2980b9; color: white; font-weight: bold; border-radius: 3px; padding: 2px;",
-  critical: "background: #c0392b; color: white; font-weight: bold; border-radius: 3px; padding: 2px;",
-  healthHeader: "background: #2ecc71; color: white; font-weight: bold; padding: 5px; border-radius: 5px;"
+  // Brand Colors
+  basis: "background: #6c5ce7; color: white; font-weight: bold; padding: 2px 6px; border-radius: 3px;",
+  version: "background: #a29bfe; color: #2d3436; padding: 2px 6px; border-radius: 3px; margin-left: -4px;",
+
+  // Headers
+  headerRed: "background: #d63031; color: white; font-weight: bold; padding: 4px 8px; border-radius: 4px;",
+  headerBlue: "background: #0984e3; color: white; font-weight: bold; padding: 4px 8px; border-radius: 4px;",
+  headerGreen: "background: #00b894; color: white; font-weight: bold; padding: 4px 8px; border-radius: 4px;",
+
+  // Elements
+  label: "background: #dfe6e9; color: #2d3436; padding: 0 4px; border-radius: 3px; font-family: monospace; font-weight: bold; border: 1px solid #b2bec3;",
+  location: "color: #0984e3; font-family: monospace; font-weight: bold;",
+  math: "color: #636e72; font-style: italic; font-family: serif;",
+
+  // Code Block
+  codeBlock: `
+    background: #1e1e1e; 
+    color: #9cdcfe; 
+    padding: 8px 12px; 
+    display: block; 
+    margin: 4px 0; 
+    border-left: 3px solid #00b894; 
+    font-family: 'Fira Code', monospace; 
+    line-height: 1.4; 
+    border-radius: 0 3px 3px 0;
+  `,
+
+  // Highlights
+  dim: "color: #e84393; font-weight: bold;",
+  bold: "font-weight: bold;"
 };
 
 const parseLabel = (label: string) => {
@@ -22,9 +43,10 @@ const parseLabel = (label: string) => {
 
 export const displayBootLog = (windowSize: number) => {
   console.log(
-    `%c Basis %c State Space Auditor v1.0 | Tracking ${windowSize} vectors `,
-    STYLES.boot,
-    STYLES.bootSecondary
+    `%cBasis%cAuditor v0.1.0%c Monitoring State Space | Window: ${windowSize} ticks`,
+    STYLES.basis,
+    STYLES.version,
+    "color: #636e72; font-style: italic; margin-left: 8px;"
   );
 };
 
@@ -33,84 +55,160 @@ export const displayRedundancyAlert = (labelA: string, labelB: string, sim: numb
   const infoB = parseLabel(labelB);
   const isCrossFile = infoA.file !== infoB.file;
 
-  console.group(`%c 📐 BASIS | REDUNDANCY DETECTED `, STYLES.header);
+  console.group(`%c 📐 BASIS | DIMENSION COLLAPSE DETECTED `, STYLES.headerRed);
 
-  console.log(`%c📍 Location: %c ${isCrossFile ? `${infoA.file} & ${infoB.file}` : infoA.file}`, "font-weight: bold;", "color: #3498db;");
+  console.log(`%c📍 Location: %c${isCrossFile ? `${infoA.file} & ${infoB.file}` : infoA.file}`, STYLES.bold, STYLES.location);
 
   console.log(
-    `%cProblem:%c You have two separate states (%c${infoA.name}%c and %c${infoB.name}%c) that are moving in perfect sync. This usually means they represent the same information dimension.`,
-    "font-weight: bold; color: #e67e22;", "", 
-    STYLES.problemLabel, "",
-    STYLES.problemLabel, ""
+    `%cAnalysis:%c Vectors %c${infoA.name}%c and %c${infoB.name}%c are collinear (redundant).`,
+    STYLES.bold, "", STYLES.label, "", STYLES.label, ""
   );
 
   console.log(
-    `%cHow to fix:%c Avoid manual state synchronization. Delete %cuseState%c for %c${infoB.name}%c and calculate it automatically from %c${infoA.name}%c:
-
-%c // 🛠️ Basis Refactor Suggestion:
- const ${infoB.name} = useMemo(() => deriveFrom(${infoA.name}), [${infoA.name}]); %c`,
-    STYLES.fixHeader, "", 
-    "color: #ff4757; font-weight: bold;", "", "font-weight: bold;", "", "color: #3498db; font-weight: bold;", "",
+    `%cHow to fix:%c Project %c${infoB.name}%c as a derived value:
+%c// 🛠️ Basis Fix: Remove useState, use useMemo
+const ${infoB.name} = useMemo(() => deriveFrom(${infoA.name}), [${infoA.name}]);%c`,
+    "color: #00b894; font-weight: bold;", "",
+    "color: #e84393; font-weight: bold;", "",
     STYLES.codeBlock, ""
   );
 
-  console.groupCollapsed(`%c 🔬 View Mathematical Details (Axler Proof) `, "color: #888; font-size: 10px; cursor: pointer;");
+  console.groupCollapsed(`%c 🔬 Proof Details `, "color: #636e72; font-size: 10px; cursor: pointer;");
   console.table({
-    "Status": "REDUNDANT",
-    "Correlation Score": `${(sim * 100).toFixed(2)}%`,
-    "Cosine Similarity": sim.toFixed(6),
-    "Basis Dimension": totalDimensions
+    "Similarity": `${(sim * 100).toFixed(2)}%`,
+    "Linear Dependency": "TRUE",
+    "Rank": totalDimensions - 1
   });
-  console.log(`%cBasis Theory:%c These states are collinear. In a Basis, all vectors must be linearly independent. Your state %c${infoB.name}%c lives in the span of %c${infoA.name}%c.`, "font-weight: bold;", "color: #555;", "font-style: italic;", "font-style: italic;");
   console.groupEnd();
   console.groupEnd();
-  console.log("\n");
 };
 
-export const displayCausalHint = (label: string, source: string) => {
-  const infoLabel = parseLabel(label);
-  const infoSource = parseLabel(source);
+export const displayCausalHint = (targetLabel: string, sourceLabel: string) => {
+  const target = parseLabel(targetLabel);
+  const source = parseLabel(sourceLabel);
 
-  console.groupCollapsed(`%c 💡 ARCHITECTURAL HINT | CAUSAL LINK `, STYLES.hintHeader);
-  console.log(`Variable %c"${infoLabel.name}"%c was updated by an effect triggered by %c"${infoSource.name}"%c.`, "color: #e67e22; font-weight: bold;", "", "color: #3498db; font-weight: bold;", "");
-  console.log(`This indicates manual synchronization. Switch to %cuseMemo%c to avoid a double render cycle.`, "color: #2ecc71; font-weight: bold;", "");
+  const isCrossFile = target.file !== source.file;
+  const locationPath = isCrossFile
+    ? `${source.file} ➔ ${target.file}`
+    : target.file;
+
+  console.groupCollapsed(`%c 💡 BASIS | CAUSALITY (Sequential Update) `, STYLES.headerBlue);
+
+  console.log(`%c📍 Location: %c${locationPath}`, STYLES.bold, STYLES.location);
+
+  console.log(
+    `%cSequence:%c %c${source.name}%c ➔ Effect ➔ %c${target.name}%c`,
+    STYLES.bold, "",
+    STYLES.label, "",
+    STYLES.label, ""
+  );
+
+  console.log(
+    `%cObservation:%c Variable %c${target.name}%c is being manually synchronized.
+This creates a %c"Double Render Cycle"%c.`,
+    STYLES.bold, "", STYLES.label, "",
+    "color: #d63031; font-weight: bold;", ""
+  );
+
+  console.log(
+    `%cHow to fix:%c Use %cuseMemo%c to calculate %c${target.name}%c during render:
+%cconst ${target.name} = useMemo(() => computeFrom(${source.name.includes('effect') ? 'source' : source.name}), [${source.name.includes('effect') ? 'source' : source.name}]);%c`,
+    "color: #00b894; font-weight: bold;", "",
+    "color: #0984e3; font-weight: bold;", "",
+    "color: #e84393; font-weight: bold;", "",
+    STYLES.codeBlock, ""
+  );
+
   console.groupEnd();
 };
 
 export const displayInfiniteLoop = (label: string) => {
   const info = parseLabel(label);
-  console.log(`%c 🛑 BASIS CRITICAL | INFINITE LOOP HALTED `, STYLES.critical);
-  console.error(`Circuit Breaker triggered on: %c"${info.name}"%c\nReason: State oscillation too high. Application state protected.`, "color: #ff4757; font-weight: bold", "");
+  console.group(`%c 🛑 BASIS CRITICAL | CIRCUIT BREAKER `, STYLES.headerRed);
+  console.error(
+    `Infinite oscillation detected on: %c${info.name}%c
+Execution halted to prevent browser thread lock. Check your dependency arrays.`,
+    "color: white; background: #d63031; padding: 2px 4px; border-radius: 3px;", ""
+  );
+  console.groupEnd();
 };
 
 export const displayHealthReport = (
-  history: Map<string, number[]>, 
+  history: Map<string, number[]>,
   similarityFn: (A: number[], B: number[]) => number,
   threshold: number
 ) => {
   const entries = Array.from(history.entries());
-  const total = entries.length;
-  if (total === 0) return;
+  const totalVars = entries.length;
+  if (totalVars === 0) return;
 
-  const matrix: any = {};
-  let redundancyCount = 0;
+  const clusters: string[][] = [];
+  const processed = new Set<string>();
+  let independentCount = 0;
 
   entries.forEach(([labelA, vecA]) => {
-    const infoA = parseLabel(labelA);
-    matrix[infoA.name] = {};
+    if (processed.has(labelA)) return;
+
+    const currentCluster = [labelA];
+    processed.add(labelA);
+
     entries.forEach(([labelB, vecB]) => {
-      const infoB = parseLabel(labelB);
+      if (labelA === labelB || processed.has(labelB)) return;
+
       const sim = similarityFn(vecA, vecB);
-      matrix[infoA.name][infoB.name] = sim > threshold ? `🔴 ${sim.toFixed(2)}` : `🟢 ${sim.toFixed(2)}`;
-      if (labelA !== labelB && sim > threshold) redundancyCount++;
+      if (sim > threshold) {
+        currentCluster.push(labelB);
+        processed.add(labelB);
+      }
     });
+
+    if (currentCluster.length > 1) {
+      clusters.push(currentCluster);
+    } else {
+      independentCount++;
+    }
   });
 
-  const efficiency = Math.max(0, 100 - (redundancyCount / (total * total)) * 100);
+  const systemRank = independentCount + clusters.length;
+  const efficiency = (systemRank / totalVars) * 100;
 
-  console.group(`%c 📊 BASIS SYSTEM HEALTH REPORT `, STYLES.healthHeader);
-  console.log(`%cEfficiency Score: %c${efficiency.toFixed(1)}%`, "font-weight: bold;", `color: ${efficiency > 80 ? '#2ecc71' : '#e67e22'}; font-size: 16px; font-weight: bold;`);
-  console.log("%cState Correlation Matrix:", "font-weight: bold; margin-top: 10px;");
-  console.table(matrix);
+  console.group(`%c 📊 BASIS | SYSTEM HEALTH REPORT `, STYLES.headerGreen);
+
+  console.log(
+    `%cBasis Efficiency: %c${efficiency.toFixed(1)}% %c(Rank: ${systemRank}/${totalVars})`,
+    STYLES.bold,
+    `color: ${efficiency > 85 ? '#00b894' : '#d63031'}; font-size: 16px; font-weight: bold;`,
+    "color: #636e72; font-style: italic;"
+  );
+
+  if (clusters.length > 0) {
+    console.log(`%cDetected ${clusters.length} Redundancy Clusters:`, "font-weight: bold; color: #e17055; margin-top: 10px;");
+
+    clusters.forEach((cluster, idx) => {
+      const names = cluster.map(l => parseLabel(l).name).join(' ⟷ ');
+      console.log(` %c${idx + 1}%c ${names}`, "background: #e17055; color: white; border-radius: 50%; padding: 0 5px;", "font-family: monospace;");
+    });
+  } else {
+    console.log("%c✨ All state variables are linearly independent. Your Basis is optimal.", "color: #00b894; font-weight: bold; margin-top: 10px;");
+  }
+
+  if (totalVars > 0 && totalVars < 15) {
+    console.groupCollapsed("%cView Full Correlation Matrix", "color: #636e72; font-size: 11px;");
+    const matrix: any = {};
+    entries.forEach(([labelA]) => {
+      const nameA = parseLabel(labelA).name;
+      matrix[nameA] = {};
+      entries.forEach(([labelB]) => {
+        const nameB = parseLabel(labelB).name;
+        const sim = similarityFn(history.get(labelA)!, history.get(labelB)!);
+        matrix[nameA][nameB] = sim > threshold ? `❌ ${(sim * 100).toFixed(0)}%` : `✅`;
+      });
+    });
+    console.table(matrix);
+    console.groupEnd();
+  } else {
+    console.log("%c[Note] Matrix hidden due to high dimensionality. Focus on clusters above.", "color: #636e72; font-size: 10px; font-style: italic;");
+  }
+
   console.groupEnd();
 };
