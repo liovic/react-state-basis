@@ -6,8 +6,7 @@
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
   "files": [
-    "dist",
-    "plugin"
+    "dist"
   ],
   "exports": {
     ".": {
@@ -37,11 +36,9 @@
     "babel-plugin",
     "optimization",
     "formal-verification",
-    "redundancy-detection",
-    "babel-plugin",
-    "architecture"
+    "redundancy-detection"
   ],
-  "author": "LP",
+  "author": "Petar Liovic <petarliovic1@gmail.com> (https://github.com/liovic)",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -56,6 +53,7 @@
   },
   "devDependencies": {
     "@babel/core": "^7.26.0",
+    "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.1",
     "@types/node": "^22.0.0",
@@ -68,8 +66,5 @@
     "tsup": "^8.3.5",
     "typescript": "^5.7.0",
     "vitest": "^4.0.16"
-  },
-  "dependencies": {
-    "@testing-library/dom": "^10.4.1"
   }
 }
