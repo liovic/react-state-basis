@@ -138,6 +138,7 @@ export default function Root() {
 ### 2. Use Drop-in Replacement Imports
 Replace your standard React hook imports with `react-state-basis`. This allows the engine to instrument your state updates without changing your component logic.
 
+**Standard Named Imports (Recommended):**
 ```tsx
 // ❌ Change this:
 // import { useState, useEffect } from 'react';
@@ -150,7 +151,46 @@ function MyComponent() {
 }
 ```
 
-> Note: React-State-Basis includes an optional Babel plugin that automatically labels state variables for richer diagnostics.
+**Namespace Imports:**
+Basis also supports namespace imports if you prefer to keep your hooks grouped:
+```tsx
+import * as Basis from 'react-state-basis';
+
+function MyComponent() {
+  const [count, setCount] = Basis.useState(0); // Also tracked automatically
+}
+```
+
+### 3. The Babel plugin
+The Babel plugin is optional but highly recommended. Without it, state variables will be tracked as anonymous_state, making it difficult to identify specific redundancies in large applications. You can also manually provide a label as the last argument to any hook if you prefer not to use Babel.
+
+> If you choose not to use the Babel plugin, you can still get specific labels by passing a string as the last argument:
+
+```tsx
+const [count, setCount] = useState(0, "MyComponent -> count");
+```
+
+To get the most out of Basis, you should enable the Babel plugin. This automatically injects the **filename** and **variable name** into your hooks so you don't have to label them manually.
+
+If you are using **Vite**, add the following to your `vite.config.ts`:
+
+```typescript
+// vite.config.ts
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+
+export default defineConfig({
+  plugins: [
+    react({
+      babel: {
+        // Automatically labels useState, useMemo, etc. 
+        // for richer diagnostics in the console.
+        plugins: [['react-state-basis/plugin']]
+      }
+    })
+  ]
+})
+```
 
 
 ---
