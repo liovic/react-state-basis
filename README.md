@@ -1,5 +1,10 @@
+<p align="center">
+  <img src="./assets/logo.png" width="300" alt="Basis Logo">
+</p>
+
 [![npm version](https://badge.fury.io/js/react-state-basis.svg)](https://www.npmjs.com/package/react-state-basis)
 [![View on GitHub](https://img.shields.io/badge/View_Documentation-GitHub-black?logo=github)](https://github.com/liovic/react-state-basis#readme)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
 
 # 📐 REACT-STATE-BASIS
 ### **Behavioral State Analysis for React**
