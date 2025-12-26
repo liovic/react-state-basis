@@ -1,3 +1,5 @@
+[![npm version](https://badge.fury.io/js/react-state-basis.svg)](https://www.npmjs.com/package/react-state-basis)
+
 # 📐 REACT-STATE-BASIS
 ### **Behavioral State Analysis for React**
 
