@@ -438,6 +438,37 @@ When in doubt, it surfaces potential issues so developers can make informed deci
 
 Think of it as an architectural smoke detector-not a fire marshal.
 
+---
+
+## 🗺️ Roadmap & Future Improvements (v0.2.0+)
+
+**React-State-Basis** is a solo-developed diagnostic infrastructure. I am currently working on the following features to enhance the "Zero-Friction" developer experience:
+
+### 1. ⚡ Hybrid Production Strategy
+I am moving towards a "Set and Forget" model to eliminate manual import management:
+* **Production Pass-through:** A production-mode toggle that bypasses the auditing logic and maps directly to React core hooks with zero overhead.
+* **Tree-Shaking Optimization:** Ensuring the Linear Algebra engine and Circuit Breaker logic are physically excluded from production bundles via conditional exports.
+
+### 2. 🛠️ CLI "Clean-Exit" Utility
+For engineers who prefer a purist approach or want to remove the dependency after a refactor phase:
+* **Automated Codemod:** I plan to release `npx rsb-clean`, a utility to automatically revert all `react-state-basis` imports back to standard `react` imports across your entire project.
+* **One-Command Cleanup:** Ensures a zero-overhead production build without manual searching and replacing.
+
+### 3. 📉 Dependency Topology Visualizer
+I want to transform the "Audit Report" from console logs into a visual map:
+* **Redundancy Clusters:** A 2D canvas showing "entangled" states as physical clusters.
+* **Vector Distance Mapping:** A visual representation of how close your state variables are to being collinear.
+
+
+
+### 4. 🧪 CI/CD Integration
+* **Test-Health Reporting:** Integration with Vitest/Jest to automatically fail builds if a "Dimension Collapse" or "Infinite Loop" is detected during automated test runs.
+* **Architectural KPI tracking:** Monitoring your **System Efficiency Score** over time as the codebase grows.
+
+---
+
+### 📬 Get Involved
+If you have an idea for a mathematical heuristic or a DX improvement, feel free to open an issue or a PR.
 
 ---
 *Developed by LP*  
