@@ -4,8 +4,6 @@ dist/
 
 coverage/
 
-package-lock.json
-
 *.tsbuildinfo
 
 npm-debug.log*
