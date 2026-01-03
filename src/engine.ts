@@ -10,6 +10,25 @@ import {
   ANALYSIS_INTERVAL 
 } from './core/constants';
 
+export interface BasisConfig {
+  debug: boolean;
+}
+
+export let config: BasisConfig = {
+  debug: false,
+};
+
+let booted = false;
+
+export const configureBasis = (newConfig: Partial<BasisConfig>) => {
+  config = { ...config, ...newConfig };
+
+  if (config.debug && !booted) {
+    UI.displayBootLog(WINDOW_SIZE);
+    booted = true;
+  }
+};
+
 export const history = new Map<string, number[]>();
 export const currentTickBatch = new Set<string>();
 let updateLog: { label: string; ts: number }[] = [];
@@ -17,9 +36,9 @@ let currentEffectSource: string | null = null;
 let tick = 0;
 let isBatching = false;
 
-UI.displayBootLog(WINDOW_SIZE);
-
 const analyzeBasis = () => {
+  if (!config.debug) return;
+
   const entries = Array.from(history.entries());
   if (entries.length < 2) return;
 
@@ -35,6 +54,10 @@ const analyzeBasis = () => {
 };
 
 export const printBasisHealthReport = (threshold = 0.5) => {
+  if (!config.debug) {
+    console.warn("[Basis] Cannot generate report. Debug mode is OFF.");
+    return;
+  }
   UI.displayHealthReport(history, calculateCosineSimilarity, threshold);
 };
 
@@ -42,6 +65,8 @@ export const beginEffectTracking = (label: string) => { currentEffectSource = la
 export const endEffectTracking = () => { currentEffectSource = null; };
 
 export const registerVariable = (label: string) => {
+  if (!config.debug) return; 
+
   if (!history.has(label)) {
     history.set(label, new Array(WINDOW_SIZE).fill(0));
   }
@@ -52,6 +77,8 @@ export const unregisterVariable = (label: string) => {
 };
 
 export const recordUpdate = (label: string): boolean => {
+  if (!config.debug) return true;
+
   const now = Date.now();
 
   updateLog.push({ label, ts: now });
@@ -93,6 +120,8 @@ if (typeof window !== 'undefined') {
 }
 
 export const __testEngine__ = {
+  config,
+  configureBasis,
   history,
   currentTickBatch,
   registerVariable,

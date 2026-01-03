@@ -1,5 +1,7 @@
 // src/context.tsx
-import React, { createContext, useContext, ReactNode } from 'react';
+
+import React, { createContext, useContext, ReactNode, useEffect, useLayoutEffect } from 'react';
+import { configureBasis } from './engine';
 
 const BasisContext = createContext({ debug: false });
 
@@ -11,13 +13,19 @@ interface BasisProviderProps {
 }
 
 export const BasisProvider: React.FC<BasisProviderProps> = ({ children, debug = true }) => {
-  if (isWeb) {
-    (window as any)._basis_debug = debug;
-  }
+  
+  useLayoutEffect(() => {
+    configureBasis({ debug });
+
+    if (isWeb) {
+      (window as any)._basis_debug = debug;
+    }
+  }, [debug]);
 
   return (
     <BasisContext.Provider value={{ debug }}>
       {children}
+      
       {(debug && isWeb) && (
         <div style={{ 
           position: 'fixed', bottom: 10, right: 10, background: 'black', color: '#0f0', 

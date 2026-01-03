@@ -11,8 +11,15 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.js"
+      "development": {
+        "import": "./dist/index.mjs",
+        "require": "./dist/index.js"
+      },
+      "production": {
+        "import": "./dist/production.mjs",
+        "require": "./dist/production.js"
+      },
+      "default": "./dist/production.mjs"
     },
     "./plugin": "./dist/plugin.js"
   },

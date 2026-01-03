@@ -24,7 +24,7 @@ Inspired by the work of **Sheldon Axler** (*"Linear Algebra Done Right"*), Basis
 
 ---
 
-## 📦 Installation
+## Installation
 
 ```bash
 npm i react-state-basis
@@ -32,26 +32,26 @@ npm i react-state-basis
 
 ---
 
-## 🧠 The Philosophy: State as a Vector Space
+## The Philosophy: State as a Vector Space
 
 In a perfectly architected application, every state variable should represent a **unique dimension of information**. 
 
-Mathematically, your state variables $\{v_1, v_2, \dots, v_n\}$ should form a **Basis** for your application's state space $V$. A Basis must be **linearly independent**. If two variables update in perfect synchronization, they are **collinear** (linearly dependent). This creates:
+Mathematically, your state variables $(v_1, v_2, \dots, v_n)$ should form a **Basis** for your application's state space $V$. A Basis must be **linearly independent**. If two variables update in perfect synchronization, they are **collinear** (linearly dependent). This creates:
 1.  **Redundant Renders:** Multiple cycles for a single logical change.
 2.  **State Desynchronization:** High risk of "impossible states" (e.g., `user` exists but `isLoggedIn` is false).
 3.  **Architectural Entropy:** High cognitive load in tracing data causality.
 
 ---
-## 🚀 See It In Action
+## See It In Action
 
-> ### 💡 Detecting Causal Links & Double Renders
+### Detecting Causal Links & Double Renders
 ![alt text](./example/screenshots/causal.gif)
 
 **The Problem:** Manually syncing `fahrenheit` via `useEffect` creates a "Double Render Cycle" (React renders once for Celsius, then again for Fahrenheit).
 
 **The Basis Solution:** Basis identifies this sequential dependency in real-time. It flags the `Causal Link` and provides a copy-paste refactor to move from expensive state synchronization to a pure **Mathematical Projection** (`useMemo`).
 
-> ### 🕸️ Identifying Boolean Entanglement
+### Identifying Boolean Entanglement
 ![alt text](./example/screenshots/booleanEntanglement.gif)
 
 **The Problem:** Using multiple boolean flags (`isLoading`, `isSuccess`, `hasData`) often leads to "impossible states" and redundant updates.
@@ -60,7 +60,7 @@ Mathematically, your state variables $\{v_1, v_2, \dots, v_n\}$ should form a **
 
 **The Insight:** It flags a **Dimension Collapse**, alerting you that 3 independent state variables are actually spanning only 1 dimension of information. It suggests consolidating them into a single state machine or a status string.
 
-> ### 🛑 Circuit Breaker (Infinite Loop Protection)
+### Circuit Breaker (Infinite Loop Protection)
 ![Infinite Loop GIF](./example/screenshots/infiniteLoopTrap.gif)
 
 **The Trap:** A recursive `useEffect` that triggers an infinite state oscillation, a common mistake that usually freezes the browser's main thread.
@@ -69,7 +69,7 @@ Mathematically, your state variables $\{v_1, v_2, \dots, v_n\}$ should form a **
 
 **The Result:** The engine forcefully halts the update chain before the browser locks up. It provides a critical diagnostic report with the exact location of the loop, allowing you to fix the bug without having to kill the browser process.
 
-> ### 🌐 Cross-Context Dependency Audit
+### Cross-Context Dependency Audit
 ![Cross-Context Sync GIF](./example/screenshots/initiateGlobalSync.gif)
 
 **The Scenario:** Modern apps often split state into multiple providers (e.g., `AuthContext` and `ThemeContext`). While architecturally decoupled, they are often **manually synchronized** in logic (e.g., switching to "dark theme" every time a user logs in).
@@ -80,7 +80,7 @@ Mathematically, your state variables $\{v_1, v_2, \dots, v_n\}$ should form a **
 
 **The Benefit:** This helps architects identify states that should potentially be merged or derived from a single source of truth, even when they are physically separated across different providers.
 
-> ### 📊 System Health & Structural Audit
+### System Health & Structural Audit
 ![System Health Report](./example/screenshots/systemHealthReport.gif)
 
 **System Rank & Efficiency:** Basis performs a global audit of your state space to calculate its **Mathematical Rank**—the actual number of independent information dimensions. An efficiency of **40% (Rank: 4/10)** warns you that 60% of your state is mathematically redundant.
@@ -126,7 +126,7 @@ It is a specialized diagnostic tool for one very common anti-pattern - and it tr
 To enable the mathematical monitoring of your application, follow these two steps:
 
 ### 1. Initialize the Basis Monitor
-Wrap your application root (e.g., `main.tsx` or `App.tsx`) with the `BasisProvider`. Setting `debug={true}` enables the real-time diagnostic dashboard and the visual system status monitor.
+Wrap your application root with the `BasisProvider`. 
 
 ```tsx
 import { BasisProvider } from 'react-state-basis';
@@ -139,6 +139,10 @@ export default function Root() {
   );
 }
 ```
+**Props:**
+*   `debug (boolean)`: 
+    *   `true` (Default): Enables the real-time diagnostic dashboard, visual system status badge (Web only), and detailed console auditing (including the Circuit Breaker).
+    *   `false`: Completely deactivates the Basis engine. No background analysis, no memory consumption, and no logging. The "Circuit Breaker" is also disabled in this mode to allow for a zero-overhead, raw React experience in development.
 
 ### 2. Use Drop-in Replacement Imports
 Replace your standard React hook imports with `react-state-basis`. This allows the engine to instrument your state updates without changing your component logic.
@@ -178,6 +182,15 @@ function MyComponent() {
 }
 ```
 
+## Ghost Mode: Zero-Overhead Production
+Basis is a **development-only** infrastructure.
+
+Using **Conditional Exports**, Basis automatically detects your environment:
+*   **Development:** The full Linear Algebra engine and auditor are active.
+*   **Production:** Basis swaps itself for a **Zero-Op version**. It exports raw React hooks directly with no additional logic, ensuring **zero bundle bloat** and **zero performance penalty** for your end users.
+
+You can safely keep `react-state-basis` in your code without manual removal before deployment.
+
 ### 3. The Babel plugin
 The Babel plugin is optional but highly recommended. Without it, state variables will be tracked as anonymous_state, making it difficult to identify specific redundancies in large applications. You can also manually provide a label as the last argument to any hook if you prefer not to use Babel.
 
@@ -212,7 +225,7 @@ export default defineConfig({
 
 ---
 
-## 🕵️‍♂️ Technical Architecture
+## Technical Architecture
 
 React-State-Basis utilizes a three-tier instrumentation pipeline to audit your system:
 
@@ -239,7 +252,7 @@ If $\cos(\theta) \approx 1.00$, the vectors are collinear (linearly dependent), 
 
 ---
 
-## 📝 Real-World Demonstration: The Auth Anti-Pattern
+## Real-World Demonstration: The Auth Anti-Pattern
 
 Developers often manually sync related states, creating a redundant dimension in the Basis:
 
@@ -250,7 +263,7 @@ const [isLogged, setIsLogged] = useState(false);
 
 const onLogin = (userData) => {
   setUser(userData);
-  setIsLogged(true); // ⚠️ BASIS ALERT: Always updated in sync with 'user'
+  setIsLogged(true); // BASIS ALERT: Always updated in sync with 'user'
 };
 ```
 **Engine Analysis:** The Engine calculates that `user` and `isLogged` are perfectly synchronized. It warns you that you are using two dimensions to describe a 1D problem.
@@ -264,28 +277,28 @@ const isLogged = useMemo(() => !!user, [user]); // Mathematically clean
 
 ---
 
-## 🖥️ Diagnostic Dashboard
+## Diagnostic Dashboard
 
 Basis provides high-end diagnostic feedback directly in your browser console:
 
-*   **📍 Location Tracking:** Identifies exact files and variable names causing redundancy.
-*   **🛠️ Refactor Snippets:** Provides dark-themed code blocks you can copy-paste to fix your state architecture.
-*   **📊 Health Matrix:** Call `printBasisReport()` to see your **Efficiency Score** and the full **Correlation Matrix** of your application.
+*   **Location Tracking:** Identifies exact files and variable names causing redundancy.
+*   **Refactor Snippets:** Provides dark-themed code blocks you can copy-paste to fix your state architecture.
+*   **Health Matrix:** Call `printBasisReport()` to see your **Efficiency Score** and the full **Correlation Matrix** of your application.
 
 ---
 
-## ✨ Key Features
+## Key Features
 
-*   **🕵️‍♂️ Content-Agnostic:** Identifies logical links through temporal synchronization, not data types.
-*   **🛡️ Circuit Breaker:** Halts high-frequency state oscillations (Infinite Loops) to protect the browser thread.
-*   **💡 Causal Detective:** Tracks causality chains from `useEffect` to `useState` to identify cascading renders.
-*   **🔄 Zero Lock-in:** Simply point your imports back to `'react'` in production. Basis is a **Development-time verification infrastructure**.
+*   **Content-Agnostic:** Identifies logical links through temporal synchronization, not data types.
+*   **Circuit Breaker:** Halts high-frequency state oscillations (Infinite Loops) to protect the browser thread.
+*   **Causal Detective:** Tracks causality chains from `useEffect` to `useState` to identify cascading renders.
+*   **Zero Lock-in:** Simply point your imports back to `'react'` in production. Basis is a **Development-time verification infrastructure**.
 
 ---
 
-## 🎓 Mathematical Inspiration
+## Mathematical Inspiration
 
-### 📜 The Basis Theorem
+### The Basis Theorem
 According to Axler (*Linear Algebra Done Right, Definition 2.27*):
 
 > A **basis** of $V$ is a list of vectors in $V$ that is **linearly independent** and **spans** $V$.
@@ -304,7 +317,7 @@ React-State-Basis bridges the gap between abstract algebra and UI engineering.
 By ensuring your application state forms an independent, non-redundant basis, it helps you build software that is inherently more stable, efficient, and easier to reason about.
 ---
 
-### 📜 Implementation of the Linear Dependency Lemma
+### Implementation of the Linear Dependency Lemma
 According to Axler (*Lemma 2.21*), in a linearly dependent **list** of vectors, there exists an index $j$ such that $v_j$ is in the span of the **preceding** vectors ($v_1, \dots, v_{j-1}$).
 
 **React-State-Basis** implements this sequential logic to audit your state:
@@ -316,7 +329,7 @@ According to Axler (*Lemma 2.21*), in a linearly dependent **list** of vectors, 
 
 ---
 
-## ⚠️ Design Constraints & Heuristics
+## Design Constraints & Heuristics
 
 React-State-Basis uses probabilistic, time-windowed heuristics to approximate linear dependence.
 As with any runtime analysis:
@@ -342,8 +355,6 @@ It answers questions like:
 - *“Which state is the true source of truth?”*
 - *“Am I manually synchronizing derived data?”*
 
----
-
 ### **Does this change React behavior or execution order?**
 No.
 
@@ -352,19 +363,12 @@ It observes state updates at runtime and logs diagnostics during development.
 
 Removing React-State-Basis restores your application to standard React behavior with no residual effects.
 
----
-
 ### **Is this safe to use in production?**
 React-State-Basis is designed for **development-time analysis**.
 
-While it is technically safe to run in production, it:
-- adds runtime overhead
-- logs diagnostic output
-- performs continuous analysis
+Minimal in development, zero in production via Ghost Mode.
 
-For production builds, simply switch your imports back to `'react'`.
-
----
+For production builds, simply switch your imports back to `'react'` or keep as is.
 
 ### **How accurate is the redundancy detection?**
 React-State-Basis uses **time-windowed behavioral analysis**, not formal proofs.
@@ -375,8 +379,6 @@ This means:
 
 All results are **advisory** and should be interpreted as architectural signals, not errors.
 
----
-
 ### **Can this detect all redundant state?**
 No-and that’s intentional.
 
@@ -384,8 +386,6 @@ React-State-Basis detects **behavioral redundancy**, not semantic equivalence.
 Two states may contain the same *data* but update independently, which is architecturally valid.
 
 React-State-Basis only flags redundancy when two states behave as a single information dimension over time.
-
----
 
 ### **Why not just use selectors or derived state manually?**
 You should-and React-State-Basis encourages that.
@@ -397,8 +397,6 @@ The challenge is *finding* where derived state should exist in large or evolving
 
 It surfaces opportunities for refactoring, not rules you must follow.
 
----
-
 ### **Does this work with Redux, Zustand, or other state managers?**
 React-State-Basis currently instruments **React hooks directly**.
 
@@ -408,8 +406,6 @@ However, the underlying model is store-agnostic. Any system with:
 - consistent labeling
 
 could theoretically be analyzed using the same approach.
-
----
 
 ### **What about performance?**
 React-State-Basis is optimized for real-time use in development.
@@ -421,15 +417,11 @@ Key design choices:
 
 For typical applications, overhead is negligible. For extremely high-frequency updates (e.g., animations), React-State-Basis may emit conservative warnings.
 
----
-
 ### **Is this “formal verification”?**
 No.
 
 React-State-Basis performs **runtime architectural auditing**, not formal mathematical verification.  
 It applies concepts from linear algebra to **observe and analyze behavior**, not to prove correctness.
-
----
 
 ### **Who is this tool for?**
 React-State-Basis is best suited for:
@@ -440,14 +432,10 @@ React-State-Basis is best suited for:
 
 It may be unnecessary for small or short-lived projects.
 
----
-
 ### **Why linear algebra?**
 Because state redundancy *is* linear dependence.
 
 If two state variables always change together, they span the same dimension of information. Linear algebra provides a precise language-and useful tools-for detecting and reasoning about that relationship.
-
----
 
 ### **Will this ever produce false positives?**
 Yes.
@@ -459,30 +447,27 @@ Think of it as an architectural smoke detector-not a fire marshal.
 
 ---
 
-## 🗺️ Roadmap: The Path to Architectural Rigor
+## Roadmap: The Path to Architectural Rigor
 
 React-State-Basis is evolving from a runtime auditor to a complete development infrastructure. Here is the planned trajectory:
 
-### **v0.2.0 - Full Hook Parity (DONE)**
-The goal is to make Basis a complete drop-in replacement for the standard React API.
-*   **Complete API Coverage:** Adding support for `useRef`, `useCallback`, `useLayoutEffect`, `useTransition`, `useDeferredValue`
-*   **Babel Enhancements:** Automated labeling for the entire hook suite to ensure zero-manual-config diagnostics.
+#### **v0.2.0 — Full Hook Parity (DONE)** ✅
+*   **Complete API Coverage:** Added support for the entire React hook suite.
+*   **Babel Enhancements:** Automated labeling for all hooks via AST transformation.
 *   **Signature Robustness:** Smart disambiguation between dependency arrays and manual labels.
 
-### **v0.3.0 - Modernity & Production Strategy**
-Aligning with the future of React and ensuring zero production cost.
-*   **React 19 Support:** Integration of `use()`, `useOptimistic()`, and `useActionState()` into the vector space model.
-*   **Zero-Overhead Production:** Implementing **Conditional Exports**. When in production mode, Basis will pass through raw React hooks with zero logic, ensuring no performance penalty.
+#### **v0.2.1 — Performance & Safety (DONE)** ✅
+*   **Universal Support:** Environment detection (`isWeb`) to prevent crashes in **React Native** and **Expo**.
+*   **Memory Optimization:** "Ghost registration" logic to ensure zero memory footprint when `debug={false}`.
+*   **Centralized Config:** Unified engine state to prevent logging "leaks" during initialization.
 
-### **v0.4.0 - Developer Ecosystem & Visuals**
-Tools for better ergonomics and high-level insights.
-*   **CLI Utilities (`rsb-init`, `rsb-clean`):** Automated codemods to instantly inject or remove Basis from large codebases. No more manual search-and-replace.
-*   **State-Space Visualizer:** A 2D topology map showing "Redundancy Clusters." Visualize your state vectors as physical nodes to identify where the architecture is collapsing.
+#### **v0.3.0 — Modernity & Visual Ecosystem (Upcoming)**
+*   **React 19 Support:** Native integration for `use()`, `useOptimistic()`, and `useActionState()`.
+*   **CLI Utilities (`rsb-init`, `rsb-clean`):** Automated codemods to instantly inject or remove Basis from large codebases.
+*   **State-Space Visualizer:** A 2D topology map showing "Redundancy Clusters" to visualize your architecture's geometry.
 
-### **v1.0.0 - Formal Verification**
-*   **Architectural Gatekeeping:** CI/CD integration to fail builds on infinite loops or critical dimension collapses.
-*   **KPI Tracking:** Long-term monitoring of your application’s **System Efficiency Score**.
-
+#### **v1.0.0 — Formal Verification**
+*   **Architectural Gatekeeping:** CI/CD integration to fail builds on critical dimension collapses.
 ---
 
 ### 📬 Get Involved
@@ -490,4 +475,4 @@ If you have an idea for a mathematical heuristic or a DX improvement, feel free 
 
 ---
 *Developed by LP*  
-*For engineers who treat software as applied mathematics.* 🚀📐
+*For engineers who treat software as applied mathematics.* 📐

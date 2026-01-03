@@ -33,7 +33,8 @@ import {
   unregisterVariable,
   recordUpdate,
   beginEffectTracking,
-  endEffectTracking
+  endEffectTracking,
+  config
 } from './engine';
 
 import * as engine from './engine';
@@ -52,6 +53,8 @@ export type {
   DependencyList
 } from 'react';
 
+// --- STATE HOOKS ---
+
 export function useState<T>(initialValue: T, label?: string): [T, Dispatch<SetStateAction<T>>] {
   const [val, setVal] = reactUseState(initialValue);
   const effectiveLabel = label || 'anonymous_state';
@@ -61,7 +64,7 @@ export function useState<T>(initialValue: T, label?: string): [T, Dispatch<SetSt
     return () => unregisterVariable(effectiveLabel);
   }, [effectiveLabel]);
 
-  const setter = useCallback((newValue: SetStateAction<T>) => {
+  const setter = reactUseCallback((newValue: SetStateAction<T>) => {
     if (recordUpdate(effectiveLabel)) {
       setVal(newValue);
     }
@@ -70,44 +73,13 @@ export function useState<T>(initialValue: T, label?: string): [T, Dispatch<SetSt
   return [val, setter];
 }
 
-export function useMemo<T>(factory: () => T, depsOrLabel?: DependencyList | string, label?: string): T {
-  const isLabelAsSecondArg = typeof depsOrLabel === 'string';
-
-  const actualDeps = isLabelAsSecondArg ? undefined : (depsOrLabel as DependencyList);
-  const effectiveLabel = isLabelAsSecondArg ? (depsOrLabel as string) : (label || 'anonymous_projection');
-
-  reactUseEffect(() => {
-    if ((window as any)._basis_debug !== false) {
-      console.log(`%c [Basis] Valid Projection: "${effectiveLabel}" `, "color: #2ecc71; font-weight: bold;");
-    }
-  }, [effectiveLabel]);
-
-  return reactUseMemo(factory, actualDeps || []);
-}
-
-export function useEffect(effect: EffectCallback, depsOrLabel?: DependencyList | string, label?: string) {
-  const isLabelAsSecondArg = typeof depsOrLabel === 'string';
-
-  const actualDeps = isLabelAsSecondArg ? undefined : (depsOrLabel as DependencyList);
-  const effectiveLabel = isLabelAsSecondArg ? (depsOrLabel as string) : (label || 'anonymous_effect');
-
-  reactUseEffect(() => {
-    beginEffectTracking(effectiveLabel);
-    const cleanup = effect();
-    endEffectTracking();
-    return cleanup;
-  }, actualDeps);
-}
-
 export function useReducer<S, A, I>(
   reducer: Reducer<S, A>,
   initialArg: I & S,
   init?: any,
   label?: string
 ): [S, Dispatch<A>] {
-
   const effectiveLabel = typeof init === 'string' ? init : (label || 'anonymous_reducer');
-
   const reactInit = typeof init === 'function' ? init : undefined;
 
   const [state, dispatch] = reactUseReducer(reducer, initialArg, reactInit);
@@ -117,7 +89,7 @@ export function useReducer<S, A, I>(
     return () => unregisterVariable(effectiveLabel);
   }, [effectiveLabel]);
 
-  const basisDispatch = useCallback((action: A) => {
+  const basisDispatch = reactUseCallback((action: A) => {
     if (recordUpdate(effectiveLabel)) {
       dispatch(action);
     }
@@ -126,12 +98,20 @@ export function useReducer<S, A, I>(
   return [state, basisDispatch];
 }
 
-export function createContext<T>(defaultValue: T, label?: string): Context<T> {
-  const context = reactCreateContext(defaultValue);
-  if (label) {
-    (context as any)._basis_label = label;
-  }
-  return context;
+// --- MEMOIZATION & CALLBACKS ---
+
+export function useMemo<T>(factory: () => T, depsOrLabel?: DependencyList | string, label?: string): T {
+  const isLabelAsSecondArg = typeof depsOrLabel === 'string';
+  const actualDeps = isLabelAsSecondArg ? undefined : (depsOrLabel as DependencyList);
+  const effectiveLabel = isLabelAsSecondArg ? (depsOrLabel as string) : (label || 'anonymous_projection');
+
+  reactUseEffect(() => {
+    if (config.debug) {
+      console.log(`%c [Basis] Valid Projection: "${effectiveLabel}" `, "color: #2ecc71; font-weight: bold;");
+    }
+  }, [effectiveLabel]);
+
+  return reactUseMemo(factory, actualDeps || []);
 }
 
 export function useCallback<T extends (...args: any[]) => any>(
@@ -144,7 +124,7 @@ export function useCallback<T extends (...args: any[]) => any>(
   const effectiveLabel = isLabelAsSecondArg ? (depsOrLabel as string) : (label || 'anonymous_callback');
 
   reactUseEffect(() => {
-    if ((window as any)._basis_debug !== false) {
+    if (config.debug) {
       console.log(`%c [Basis] Stable Callback: "${effectiveLabel}" `, "color: #2ecc71; font-weight: bold;");
     }
   }, [effectiveLabel]);
@@ -152,13 +132,23 @@ export function useCallback<T extends (...args: any[]) => any>(
   return reactUseCallback(callback, actualDeps || []);
 }
 
-export function useRef<T>(initialValue: T, _label?: string) {
-  return reactUseRef(initialValue);
+// --- EFFECTS ---
+
+export function useEffect(effect: EffectCallback, depsOrLabel?: DependencyList | string, label?: string) {
+  const isLabelAsSecondArg = typeof depsOrLabel === 'string';
+  const actualDeps = isLabelAsSecondArg ? undefined : (depsOrLabel as DependencyList);
+  const effectiveLabel = isLabelAsSecondArg ? (depsOrLabel as string) : (label || 'anonymous_effect');
+
+  reactUseEffect(() => {
+    beginEffectTracking(effectiveLabel);
+    const cleanup = effect();
+    endEffectTracking();
+    return cleanup;
+  }, actualDeps);
 }
 
 export function useLayoutEffect(effect: EffectCallback, depsOrLabel?: DependencyList | string, label?: string) {
   const isLabelAsSecondArg = typeof depsOrLabel === 'string';
-
   const actualDeps = isLabelAsSecondArg ? undefined : (depsOrLabel as DependencyList);
   const effectiveLabel = isLabelAsSecondArg ? (depsOrLabel as string) : (label || 'anonymous_layout_effect');
 
@@ -168,6 +158,58 @@ export function useLayoutEffect(effect: EffectCallback, depsOrLabel?: Dependency
     endEffectTracking();
     return cleanup;
   }, actualDeps);
+}
+
+export function useInsertionEffect(effect: EffectCallback, deps?: DependencyList, _label?: string) {
+  return reactUseInsertionEffect(effect, deps);
+}
+
+// --- CONCURRENT HOOKS ---
+
+export function useTransition(_label?: string): [boolean, (callback: () => void) => void] {
+  const [isPending, startTransition] = reactUseTransition();
+  const effectiveLabel = _label || 'anonymous_transition';
+
+  const basisStartTransition = (callback: () => void) => {
+    if (config.debug) {
+      console.log(`%c [Basis] Transition Started: "${effectiveLabel}" `, "color: #e67e22; font-weight: bold;");
+    }
+    startTransition(() => {
+      callback();
+    });
+  };
+
+  return [isPending, basisStartTransition];
+}
+
+export function useDeferredValue<T>(value: T, initialValueOrLabel?: T | string, label?: string): T {
+  const isLabelAsSecondArg = typeof initialValueOrLabel === 'string' && label === undefined;
+  const actualInitialValue = isLabelAsSecondArg ? undefined : initialValueOrLabel as T;
+  const effectiveLabel = isLabelAsSecondArg ? (initialValueOrLabel as string) : (label || 'anonymous_deferred');
+
+  const deferredValue = reactUseDeferredValue(value, actualInitialValue);
+
+  reactUseEffect(() => {
+    if (config.debug && value !== deferredValue) {
+      console.log(`%c [Basis] Value Deferred: "${effectiveLabel}" `, "color: #e67e22; font-weight: bold;");
+    }
+  }, [value, deferredValue, effectiveLabel]);
+
+  return deferredValue;
+}
+
+// --- UTILITY & CONTEXT ---
+
+export function useRef<T>(initialValue: T, _label?: string) {
+  return reactUseRef(initialValue);
+}
+
+export function createContext<T>(defaultValue: T, label?: string): Context<T> {
+  const context = reactCreateContext(defaultValue);
+  if (label) {
+    (context as any)._basis_label = label;
+  }
+  return context;
 }
 
 export function useContext<T>(context: Context<T>): T {
@@ -189,48 +231,6 @@ export function useImperativeHandle<T, R extends T>(
   _label?: string
 ): void {
   return reactUseImperativeHandle(ref, init, deps);
-}
-
-export function useInsertionEffect(
-  effect: EffectCallback,
-  deps?: DependencyList,
-  _label?: string
-): void {
-  return reactUseInsertionEffect(effect, deps);
-}
-
-export function useTransition(_label?: string): [boolean, (callback: () => void) => void] {
-  const [isPending, startTransition] = reactUseTransition();
-  const effectiveLabel = _label || 'anonymous_transition';
-
-  const basisStartTransition = (callback: () => void) => {
-    if ((window as any)._basis_debug !== false) {
-      console.log(`%c [Basis] Transition Started: "${effectiveLabel}" `, "color: #e67e22; font-weight: bold;");
-    }
-    
-    startTransition(() => {
-      callback();
-    });
-  };
-
-  return [isPending, basisStartTransition];
-}
-
-export function useDeferredValue<T>(value: T, initialValueOrLabel?: T | string, label?: string): T {
-  const isLabelAsSecondArg = typeof initialValueOrLabel === 'string' && label === undefined;
-  
-  const actualInitialValue = isLabelAsSecondArg ? undefined : initialValueOrLabel as T;
-  const effectiveLabel = isLabelAsSecondArg ? (initialValueOrLabel as string) : (label || 'anonymous_deferred');
-
-  const deferredValue = reactUseDeferredValue(value, actualInitialValue);
-
-  reactUseEffect(() => {
-    if ((window as any)._basis_debug !== false && value !== deferredValue) {
-      console.log(`%c [Basis] Value Deferred: "${effectiveLabel}" `, "color: #e67e22; font-weight: bold;");
-    }
-  }, [value, deferredValue, effectiveLabel]);
-
-  return deferredValue;
 }
 
 export function useSyncExternalStore<Snapshot>(
