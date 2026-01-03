@@ -15,7 +15,12 @@ import {
   useCallback,
   useLayoutEffect,
   useTransition,
-  useDeferredValue
+  useDeferredValue,
+  useId,
+  useDebugValue,
+  useSyncExternalStore,
+  useImperativeHandle,
+  useInsertionEffect
 } from '../src/hooks';
 import { BasisProvider } from '../src/context';
 
@@ -108,16 +113,16 @@ describe('Hooks Deep Coverage', () => {
   });
 
   it('useCallback: logs and maintains stability', () => {
-    const spy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const spy = vi.spyOn(console, 'log').mockImplementation(() => { });
     const { result } = renderHook(() => useCallback(() => "hello", [], "test_cb"), { wrapper });
-    
+
     expect(result.current()).toBe("hello");
     expect(spy).toHaveBeenCalledWith(expect.stringContaining('Stable Callback'), expect.any(String));
     spy.mockRestore();
   });
 
   it('useLayoutEffect: tracks causality correctly', () => {
-    const spy = vi.spyOn(console, 'groupCollapsed').mockImplementation(() => {});
+    const spy = vi.spyOn(console, 'groupCollapsed').mockImplementation(() => { });
     renderHook(() => {
       const [, s] = useState(0, 'state_var');
       useLayoutEffect(() => { s(1); }, [], 'layout_effect');
@@ -128,11 +133,11 @@ describe('Hooks Deep Coverage', () => {
   });
 
   it('useTransition: logs when transition starts', () => {
-    const spy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const spy = vi.spyOn(console, 'log').mockImplementation(() => { });
     const { result } = renderHook(() => useTransition("trans_label"), { wrapper });
-    
+
     act(() => {
-      result.current[1](() => {});
+      result.current[1](() => { });
     });
 
     expect(spy).toHaveBeenCalledWith(expect.stringContaining('Transition Started'), expect.any(String));
@@ -140,7 +145,7 @@ describe('Hooks Deep Coverage', () => {
   });
 
   it('useDeferredValue: logs when value is deferred', () => {
-    const spy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const spy = vi.spyOn(console, 'log').mockImplementation(() => { });
     const { rerender } = renderHook(({ val }) => useDeferredValue(val, "deferred_label"), {
       wrapper,
       initialProps: { val: 1 }
@@ -150,5 +155,50 @@ describe('Hooks Deep Coverage', () => {
 
     expect(spy).toHaveBeenCalledWith(expect.stringContaining('Value Deferred'), expect.any(String));
     spy.mockRestore();
+  });
+
+  it('useId: returns a valid id string', () => {
+    const { result } = renderHook(() => useId("test_id"), { wrapper });
+    expect(typeof result.current).toBe('string');
+  });
+
+  it('useDebugValue: calls react hook without crashing', () => {
+    const { result } = renderHook(() => useDebugValue("test_val"), { wrapper });
+    expect(result.current).toBeUndefined();
+  });
+
+  it('useSyncExternalStore: subscribes and returns snapshot', () => {
+    const subscribe = vi.fn(() => () => { });
+    const getSnapshot = () => "data";
+    const { result } = renderHook(() => useSyncExternalStore(subscribe, getSnapshot), { wrapper });
+    expect(result.current).toBe("data");
+    expect(subscribe).toHaveBeenCalled();
+  });
+
+  it('useImperativeHandle: handles ref assignment', () => {
+    interface MyHandle { test: number }
+
+    const ref = { current: null } as { current: MyHandle | null };
+
+    const { result } = renderHook(() =>
+      useImperativeHandle(ref, () => ({ test: 1 }), [], "test_handle"),
+      { wrapper }
+    );
+
+    expect(result.current).toBeUndefined();
+    expect(ref.current?.test).toBe(1);
+  });
+
+  it('useInsertionEffect: runs without crashing', () => {
+    const effect = vi.fn();
+    renderHook(() => useInsertionEffect(effect), { wrapper });
+    expect(effect).toHaveBeenCalled();
+  });
+
+  it('unmount cleanup: calls unregisterVariable', () => {
+    const { unmount } = renderHook(() => useState(0, 'cleanup_test'), { wrapper });
+    expect(__test__.history.has('cleanup_test')).toBe(true);
+    unmount();
+    expect(__test__.history.has('cleanup_test')).toBe(false);
   });
 });
