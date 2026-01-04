@@ -207,20 +207,27 @@ Basis performs a global audit of your state space to calculate its **Mathematica
 <img src="./example/screenshots/systemHealthReport.gif" width="700" alt="System Health Report Demo" />
 
 ---
----
 
-## 🔍 Case Study: Auditing a Production-Ready Admin Dashboard
+## 🔍 Case Study: Auditing High-Integrity React Architecture
 
-I ran Basis on a complex `shadcn/ui` admin template to see how it handles professional-grade code. Here is what the mathematical engine discovered:
+To test the engine against professional standards, Basis was used to audit the [shadcn-admin](https://github.com/satnaing/shadcn-admin) template-a high-quality, production-ready dashboard implementation.
 
 <p align="center">
-  <img src="./assets/real-world-audit.png" width="800" alt="Basis Real World Audit" />
+  <img src="./assets/shadcn-admin.png" width="800" alt="Basis Real World Audit" />
 </p>
 
-### Key Insights from the Audit:
-*   **Double Render Detection:** Basis flagged a "Double Render Cycle" in the `use-mobile.tsx` hook. It detected that state was being manually synchronized within an effect, causing unnecessary UI churn.
-*   **Stability Verification:** The engine verified that the `Sidebar` callbacks were correctly memoized, providing a "Stable Callback" confirmation.
-*   **Valid Projections:** Complex table states (pagination, filters) were confirmed as valid mathematical projections, ensuring no redundant `useState` was used.
+### Audit Results: 100% Basis Efficiency
+The project demonstrated exceptional architectural integrity. The engine verified a **100% Efficiency**, confirming that all state variables are linearly independent. This proves that the codebase follows a "Single Source of Truth" philosophy with zero redundant state.
+
+### Subtle Optimization Caught
+Despite the perfect efficiency score, the **Causality Engine** identified a hidden performance bottleneck:
+*   **Double Render Detection:** Basis flagged a "Double Render Cycle" in the `use-mobile.tsx` hook. It detected that the `isMobile` state was being manually synchronized within a `useEffect`, triggering a secondary render pass. 
+*   **Refactor Insight:** While the logic was correct, Basis revealed the cost of the implementation - a redundant render cycle that occurs before every layout shift.
+
+### Stability Confirmation
+The auditor provided formal verification for the rest of the suite:
+*   **Stable Callbacks:** Verified that `Sidebar` methods were correctly memoized, ensuring child components are protected from unnecessary updates.
+*   **Valid Projections:** Confirmed that complex table logic (pagination and filtering) was implemented as pure mathematical projections, rather than state-syncing.
 
 Math reveals exactly what standard code reviews often miss: the **temporal topology** of your application.
 ---
