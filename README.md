@@ -181,30 +181,38 @@ Basis automatically detects the environment. In mobile environments, it switches
 
 ## Key Capabilities
 
-### Redundant State Detection
-Basis monitors transition vectors to identify "Dimension Collapses." When multiple states (like `isLoading`, `isSuccess`) update in lockstep, it suggests consolidating them.
-<br/>
-<img src="./example/screenshots/booleanEntanglement.gif" width="700" alt="Boolean Entanglement Demo" />
+### 1. Temporal State Matrix (Real-time HUD)
+The "Heartbeat" of your application. Basis injects a high-performance, Zero-Overhead HUD that visualizes your state transitions as a temporal heatmap.
+*   **Signal Visualization:** Watch every `useState`, `useReducer`, and `useEffect` update pulse in real-time.
+*   **Visual Pattern Recognition:** Identify architectural flaws simply by looking at the rhythm of the matrix. If multiple rows pulse together, they likely belong together.
+*   **Zero-Overhead:** Powered by Canvas API and `requestAnimationFrame` polling to ensure your application's performance remains untouched during development.
 
-### Causal Detective
-Identifies "Double Render Cycles" by tracking the causality chain from `useEffect` or `useLayoutEffect` to state setters. Basis provides a direct refactor snippet to move from manual sync to a pure mathematical projection (`useMemo`).
-<br/>
-<img src="./example/screenshots/causal.gif" width="700" alt="Causal Link Demo" />
+### 2. Redundant State Detection (Dimension Collapse)
+Basis monitors transition vectors to identify "Dimension Collapses" in your state space.
+*   **Collinearity Alerts:** When multiple states (like `isLoading`, `isSuccess`, `hasData`) update in lockstep, Basis flags them as mathematically redundant.
+*   **Visual Debugging:** Redundant states are automatically highlighted in **Red** within the HUD, providing immediate visual proof that you are storing the same information in multiple places.
 
-### Circuit Breaker
-A real-time stability monitor. If high-frequency state oscillation is detected (e.g., a recursive effect), Basis forcefully halts the update chain to prevent the browser thread from locking up.
-<br/>
-<img src="./example/screenshots/infiniteLoopTrap.gif" width="700" alt="Circuit Breaker Demo" />
+### 3. Causal Detective (Double Render Tracker)
+Identify "Double Render Cycles" by tracking the causality chain from effects to state setters.
+*   **Sequence Tracking:** Detects when a state update is a lagging echo of a `useEffect` or `useLayoutEffect`.
+*   **Refactor Insights:** Provides direct console hints to move from manual synchronization to pure, deterministic mathematical projections using `useMemo`.
 
-### Cross-Context Audit
-Performs a global state space audit to expose hidden coupling between disparate parts of your architecture (e.g., syncing states across different Providers).
-<br/>
-<img src="./example/screenshots/initiateGlobalSync.gif" width="700" alt="Cross-Context Sync Demo" />
+### 4. Stability Circuit Breaker
+A real-time safety monitor for your execution thread.
+*   **Oscillation Detection:** If high-frequency state oscillation is detected (e.g., a recursive effect loop), Basis forcefully halts the update chain.
+*   **Tab Protection:** Stops the browser thread from locking up, allowing you to catch and fix infinite loops without having to force-quit your browser tab.
 
-### System Health & Efficiency Audit
-Basis performs a global audit of your state space to calculate its **Mathematical Rank**-the actual number of independent information dimensions. Use the **Efficiency Score** as a real-time KPI for your architecture.
-<br/>
-<img src="./example/screenshots/systemHealthReport.gif" width="700" alt="System Health Report Demo" />
+### 5. System Health & Efficiency Rank
+Basis performs a global audit of your state space to calculate its **Mathematical Rank**—the actual number of independent information dimensions.
+*   **Efficiency Score:** A real-time KPI for your architecture. A 100% score means every state variable is a unique, non-redundant source of truth.
+*   **Architecture Audit:** Use the global Health Report (`window.printBasisReport()`) to generate a correlation matrix of your entire application state.
+
+---
+
+### See it in Action
+<p align="center">
+  <img src="./assets/react-state-basis.gif" width="800" alt="React State Basis Demo" />
+</p>
 
 ---
 
@@ -234,15 +242,23 @@ Math reveals exactly what standard code reviews often miss: the **temporal topol
 
 ## Roadmap
 
-#### **v0.2.x - Stability & Universal Support (Current)** ✅
-- [x] Full React Hook API parity & React Native support.
-- [x] Memory-optimized "Ghost Registration" logic.
-- [x] 95% Test Coverage verified engine.
+#### **v0.2.x - Signal Intelligence & Visual Foundation (Current)** ✅
+- [x] **Full React Hook Parity:** Support for all standard hooks and React Native/Expo.
+- [x] **React 19 Ready:** Full support for `use()`, `useOptimistic()`, and `useActionState()`.
+- [x] **Temporal Matrix HUD:** Real-time Canvas-based visualization of state signals.
+- [x] **Causality Engine:** Detection of sequential sync-leaks and double-render cycles.
+- [x] **Ghost Mode:** Zero-op production exports with no bundle overhead.
+- [x] **95% Test Coverage:** Verified mathematical engine.
 
-#### **v0.3.0 - Visuals & React 19** 📈
-- [ ] **State-Space Visualizer:** 2D topology map showing redundancy clusters.
-- [ ] **CLI Utilities:** `rsb-init` and `rsb-clean` for automated codemods.
-- [ ] **React 19 Native Support:** `use()`, `useOptimistic()`, `useActionState()`.
+#### **v0.3.0 - Global State & Ecosystem**
+- [ ] **Zustand Middleware:** Auditing global-to-local state redundancy.
+- [ ] **Redux Integration:** Connecting the causal engine to Redux dispatch cycles.
+- [ ] **CLI Initializer:** `rsb-init` to automatically configure Babel/Vite plugins.
+- [ ] **Context Auditor:** Tracking signal collisions across multiple React Context providers.
+
+#### **v0.4.0 - Topology & Automation**
+- [ ] **State-Space Topology Map:** 2D force-directed graph showing coupling clusters.
+- [ ] **Automated Fix Hints:** Advanced console codemods for converting redundant state to `useMemo`.
 
 ---
 
