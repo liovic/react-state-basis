@@ -5,13 +5,27 @@
 <div align="center">
 
 # 📐 REACT-STATE-BASIS
-### **Behavioral State Analysis for React**
+### **Behavioral State Auditor for React**
 
 [![npm version](https://img.shields.io/npm/v/react-state-basis.svg?style=flat-square)](https://www.npmjs.com/package/react-state-basis)
 [![GitHub stars](https://img.shields.io/github/stars/liovic/react-state-basis.svg?style=flat-square)](https://github.com/liovic/react-state-basis/stargazers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
 
 </div>
+
+---
+
+### TL;DR: Runtime auditor for React state architecture
+
+React-State-Basis is a tool that observes your existing hooks at runtime and produces diagnostics about:
+* redundant / collinear state
+* manual synchronization patterns
+* unnecessary derived state
+* double-render / causal feedback cycles
+
+It acts as a state linter and architectural profiler - analyzing how your state behaves over time as the app runs, not just how it’s written in code.
+
+**Use it from first commit through refactors and audits to uncover redundant or correlated state that isn’t obvious from reading the code.**
 
 ---
 
@@ -24,7 +38,7 @@ If two states always update in lockstep, they are **linearly dependent** (redund
 
 ## How it Works: The Vectorization Engine
 
-Basis doesn't care about the *values* of your state. It monitors the **topology of transitions**.
+Basis doesn’t inspect **what** your state contains - it analyzes **when and how it changes.**
 
 ### 1. The System Tick
 The engine groups all state updates occurring within a **20ms window** (aligned with the 60FPS frame budget) into a single **System Tick**.
@@ -41,7 +55,7 @@ State B: [0, 1, 0, 0, 1, 0, 1, 0, 1, 0]  <-- vB
 Result:  Cosine Similarity = 1.00 (REDUNDANT)
 ```
 
-Basis detects synchronization, not identity. Even if the data inside the hooks is different, if they always change at the same time, they are collinear in the state-space."
+Basis detects synchronization, not identity. Even if the data inside the hooks is different, if they always change at the same time, they are collinear in the state-space.
 
 ### 3. Real-time Auditing
 Every 5 ticks, Basis calculates the **Cosine Similarity** between all active state vectors. If similarity exceeds **0.88**, an architectural alert is triggered in your console with a suggested fix.
@@ -203,7 +217,7 @@ A real-time safety monitor for your execution thread.
 *   **Tab Protection:** Stops the browser thread from locking up, allowing you to catch and fix infinite loops without having to force-quit your browser tab.
 
 ### 5. System Health & Efficiency Rank
-Basis performs a global audit of your state space to calculate its **Mathematical Rank**—the actual number of independent information dimensions.
+Basis performs a global audit of your state space to calculate its **Mathematical Rank**-the actual number of independent information dimensions.
 *   **Efficiency Score:** A real-time KPI for your architecture. A 100% score means every state variable is a unique, non-redundant source of truth.
 *   **Architecture Audit:** Use the global Health Report (`window.printBasisReport()`) to generate a correlation matrix of your entire application state.
 
