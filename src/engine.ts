@@ -10,6 +10,8 @@ import {
   ANALYSIS_INTERVAL 
 } from './core/constants';
 
+export let redundantLabels = new Set<string>();
+
 export interface BasisConfig {
   debug: boolean;
 }
@@ -42,15 +44,21 @@ const analyzeBasis = () => {
   const entries = Array.from(history.entries());
   if (entries.length < 2) return;
 
+  const newRedundant = new Set<string>();
+
   entries.forEach(([labelA, vecA], i) => {
     entries.slice(i + 1).forEach(([labelB, vecB]) => {
       const sim = calculateCosineSimilarity(vecA, vecB);
       
       if (sim > SIMILARITY_THRESHOLD) {
+        newRedundant.add(labelA);
+        newRedundant.add(labelB);
         UI.displayRedundancyAlert(labelA, labelB, sim, history.size);
       }
     });
   });
+
+  redundantLabels = newRedundant;
 };
 
 export const printBasisHealthReport = (threshold = 0.5) => {

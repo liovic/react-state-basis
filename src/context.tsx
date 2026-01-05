@@ -1,10 +1,10 @@
 // src/context.tsx
 
-import React, { createContext, useContext, ReactNode, useEffect, useLayoutEffect } from 'react';
+import React, { createContext, useContext, ReactNode, useLayoutEffect } from 'react';
 import { configureBasis } from './engine';
+import { BasisHUD } from './ui/BasisHUD';
 
 const BasisContext = createContext({ debug: false });
-
 const isWeb = typeof window !== 'undefined' && typeof window.document !== 'undefined';
 
 interface BasisProviderProps {
@@ -13,10 +13,8 @@ interface BasisProviderProps {
 }
 
 export const BasisProvider: React.FC<BasisProviderProps> = ({ children, debug = true }) => {
-  
   useLayoutEffect(() => {
     configureBasis({ debug });
-
     if (isWeb) {
       (window as any)._basis_debug = debug;
     }
@@ -25,16 +23,7 @@ export const BasisProvider: React.FC<BasisProviderProps> = ({ children, debug = 
   return (
     <BasisContext.Provider value={{ debug }}>
       {children}
-      
-      {(debug && isWeb) && (
-        <div style={{ 
-          position: 'fixed', bottom: 10, right: 10, background: 'black', color: '#0f0', 
-          padding: '5px 10px', fontSize: '10px', fontFamily: 'monospace', 
-          border: '1px solid #0f0', zIndex: 99999, borderRadius: '4px', pointerEvents: 'none'
-        }}>
-          BASIS_ENGINE: ACTIVE
-        </div>
-      )}
+      {(debug && isWeb) && <BasisHUD />}
     </BasisContext.Provider>
   );
 };
