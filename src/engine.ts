@@ -1,5 +1,3 @@
-// src/engine.ts
-
 import * as UI from './core/logger';
 import { calculateCosineSimilarity } from './core/math';
 import { 
@@ -10,38 +8,61 @@ import {
   ANALYSIS_INTERVAL 
 } from './core/constants';
 
-export let redundantLabels = new Set<string>();
-
-export interface BasisConfig {
-  debug: boolean;
+interface BasisEngineState {
+  config: { debug: boolean };
+  history: Map<string, number[]>;
+  currentTickBatch: Set<string>;
+  redundantLabels: Set<string>;
+  booted: boolean;
+  updateLog: { label: string; ts: number }[];
+  tick: number;
+  isBatching: boolean;
+  currentEffectSource: string | null;
 }
 
-export let config: BasisConfig = {
-  debug: false,
+const GLOBAL_KEY = '__BASIS_ENGINE_INSTANCE__';
+
+const getGlobalInstance = (): BasisEngineState => {
+  const g = (typeof window !== 'undefined' ? window : global) as any;
+  if (!g[GLOBAL_KEY]) {
+    g[GLOBAL_KEY] = {
+      config: { debug: false },
+      history: new Map<string, number[]>(),
+      currentTickBatch: new Set<string>(),
+      redundantLabels: new Set<string>(),
+      booted: false,
+      updateLog: [],
+      tick: 0,
+      isBatching: false,
+      currentEffectSource: null
+    };
+  }
+  return g[GLOBAL_KEY];
 };
 
-let booted = false;
+const instance = getGlobalInstance();
 
-export const configureBasis = (newConfig: Partial<BasisConfig>) => {
-  config = { ...config, ...newConfig };
+export const config = instance.config;
+export const history = instance.history;
+export const currentTickBatch = instance.currentTickBatch;
+export const redundantLabels = instance.redundantLabels;
 
-  if (config.debug && !booted) {
+export const configureBasis = (newConfig: Partial<{ debug: boolean }>) => {
+  Object.assign(instance.config, newConfig);
+
+  if (instance.config.debug && !instance.booted) {
     UI.displayBootLog(WINDOW_SIZE);
-    booted = true;
+    instance.booted = true;
   }
 };
 
-export const history = new Map<string, number[]>();
-export const currentTickBatch = new Set<string>();
-let updateLog: { label: string; ts: number }[] = [];
-let currentEffectSource: string | null = null; 
-let tick = 0;
-let isBatching = false;
-
 const analyzeBasis = () => {
-  if (!config.debug) return;
+  if (!instance.config.debug) {
+    instance.redundantLabels.clear();
+    return;
+  }
 
-  const entries = Array.from(history.entries());
+  const entries = Array.from(instance.history.entries());
   if (entries.length < 2) return;
 
   const newRedundant = new Set<string>();
@@ -53,68 +74,51 @@ const analyzeBasis = () => {
       if (sim > SIMILARITY_THRESHOLD) {
         newRedundant.add(labelA);
         newRedundant.add(labelB);
-        UI.displayRedundancyAlert(labelA, labelB, sim, history.size);
+        UI.displayRedundancyAlert(labelA, labelB, sim, instance.history.size);
       }
     });
   });
 
-  redundantLabels = newRedundant;
-};
-
-export const printBasisHealthReport = (threshold = 0.5) => {
-  if (!config.debug) {
-    console.warn("[Basis] Cannot generate report. Debug mode is OFF.");
-    return;
-  }
-  UI.displayHealthReport(history, calculateCosineSimilarity, threshold);
-};
-
-export const beginEffectTracking = (label: string) => { currentEffectSource = label; };
-export const endEffectTracking = () => { currentEffectSource = null; };
-
-export const registerVariable = (label: string) => {
-  if (!config.debug) return; 
-
-  if (!history.has(label)) {
-    history.set(label, new Array(WINDOW_SIZE).fill(0));
-  }
-};
-
-export const unregisterVariable = (label: string) => {
-  history.delete(label);
+  instance.redundantLabels.clear();
+  newRedundant.forEach(label => instance.redundantLabels.add(label));
 };
 
 export const recordUpdate = (label: string): boolean => {
-  if (!config.debug) return true;
+  if (!instance.config.debug) return true;
 
   const now = Date.now();
 
-  updateLog.push({ label, ts: now });
-  updateLog = updateLog.filter(e => now - e.ts < LOOP_WINDOW_MS);
-  if (updateLog.filter(e => e.label === label).length > LOOP_THRESHOLD) {
+  // CIRCUIT BREAKER
+  instance.updateLog.push({ label, ts: now });
+  instance.updateLog = instance.updateLog.filter(e => now - e.ts < LOOP_WINDOW_MS);
+  
+  if (instance.updateLog.filter(e => e.label === label).length > LOOP_THRESHOLD) {
     UI.displayInfiniteLoop(label);
     return false;
   }
 
-  if (currentEffectSource && currentEffectSource !== label) {
-    UI.displayCausalHint(label, currentEffectSource);
+  // CAUSAL HINT
+  if (instance.currentEffectSource && instance.currentEffectSource !== label) {
+    UI.displayCausalHint(label, instance.currentEffectSource);
   }
 
-  currentTickBatch.add(label);
+  // BATCHING (20ms)
+  instance.currentTickBatch.add(label);
 
-  if (!isBatching) {
-    isBatching = true;
+  if (!instance.isBatching) {
+    instance.isBatching = true;
     setTimeout(() => {
-      tick++;
-      history.forEach((vec, l) => {
+      instance.tick++;
+      
+      instance.history.forEach((vec, l) => {
         vec.shift();
-        vec.push(currentTickBatch.has(l) ? 1 : 0);
+        vec.push(instance.currentTickBatch.has(l) ? 1 : 0);
       });
 
-      currentTickBatch.clear();
-      isBatching = false;
+      instance.currentTickBatch.clear();
+      instance.isBatching = false;
       
-      if (tick % ANALYSIS_INTERVAL === 0) {
+      if (instance.tick % ANALYSIS_INTERVAL === 0) {
         analyzeBasis();
       }
     }, 20);
@@ -123,15 +127,45 @@ export const recordUpdate = (label: string): boolean => {
   return true;
 };
 
+// LIFECYCLE 
+export const beginEffectTracking = (label: string) => { 
+  if (instance.config.debug) instance.currentEffectSource = label; 
+};
+
+export const endEffectTracking = () => { 
+  instance.currentEffectSource = null; 
+};
+
+export const registerVariable = (label: string) => {
+  if (!instance.config.debug) return; 
+
+  if (!instance.history.has(label)) {
+    instance.history.set(label, new Array(WINDOW_SIZE).fill(0));
+  }
+};
+
+export const unregisterVariable = (label: string) => {
+  instance.history.delete(label);
+};
+
+export const printBasisHealthReport = (threshold = 0.5) => {
+  if (!instance.config.debug) {
+    console.warn("[Basis] Cannot generate report. Debug mode is OFF.");
+    return;
+  }
+  UI.displayHealthReport(instance.history, calculateCosineSimilarity, threshold);
+};
+
 if (typeof window !== 'undefined') {
   (window as any).printBasisReport = printBasisHealthReport;
 }
 
 export const __testEngine__ = {
-  config,
+  instance,
+  config: instance.config,
+  history: instance.history,
+  currentTickBatch: instance.currentTickBatch,
   configureBasis,
-  history,
-  currentTickBatch,
   registerVariable,
   recordUpdate,
   printBasisHealthReport,

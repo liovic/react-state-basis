@@ -5,10 +5,22 @@ const path = require('path');
 module.exports = function (babel) {
   const { types: t } = babel;
 
+  const isIgnoredFile = (comments) =>
+    comments && comments.some(c => /@?basis-ignore/.test(c.value));
+
   return {
     name: "babel-plugin-basis-transform",
     visitor: {
+      Program(path, state) {
+        if (isIgnoredFile(path.container.comments)) {
+          state.basisDisabled = true;
+          return;
+        }
+      },
+
       CallExpression(p, state) {
+        if (state.basisDisabled) return;
+
         let calleeName = "";
         if (t.isIdentifier(p.node.callee)) {
           calleeName = p.node.callee.name;
@@ -36,14 +48,14 @@ module.exports = function (babel) {
           } else if (t.isIdentifier(id)) {
             varName = id.name;
           }
-        } else if (calleeName === 'useEffect' || calleeName === 'useLayoutEffect' || calleeName === 'useInsertionEffect') {
+        } else if (['useEffect', 'useLayoutEffect', 'useInsertionEffect'].includes(calleeName)) {
           varName = `effect_L${p.node.loc?.start.line || 'unknown'}`;
         }
 
         const uniqueLabel = `${fileName} -> ${varName}`;
         const args = p.node.arguments;
 
-        if (['useState', 'createContext', 'useRef', 'useId', 'useDebugValue', 'useDeferredValue', 'useTransition'].includes(calleeName)) {
+        if (['useState', 'createContext', 'useRef', 'useId', 'useDebugValue', 'useDeferredValue', 'useTransition', 'useOptimistic'].includes(calleeName)) {
           if (args.length === 0) args.push(t.identifier('undefined'));
           if (args.length === 1) args.push(t.stringLiteral(uniqueLabel));
         }
@@ -53,10 +65,9 @@ module.exports = function (babel) {
           if (args.length === 2) args.push(t.stringLiteral(uniqueLabel));
         }
 
-        else if (calleeName === 'useReducer') {
-          if (args.length === 2 || args.length === 3) {
-            args.push(t.stringLiteral(uniqueLabel));
-          }
+        else if (['useReducer', 'useActionState'].includes(calleeName)) {
+          if (args.length === 2) args.push(t.identifier('undefined'));
+          if (args.length === 3) args.push(t.stringLiteral(uniqueLabel));
         }
 
         else if (['useSyncExternalStore', 'useImperativeHandle'].includes(calleeName)) {

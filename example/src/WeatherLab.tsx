@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react-state-basis'
+import { useState, useEffect, useMemo } from 'react'
 
 export const WeatherLab = () => {
   const [celsius, setCelsius] = useState(20)
