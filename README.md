@@ -24,6 +24,16 @@ If two states always update in lockstep, they are **linearly dependent** (redund
 
 ---
 
+## Key Capabilities
+
+*   **Temporal State Matrix (HUD):** A zero-overhead visualization of state signals. If rows pulse together, the architecture is redundant.
+*   **Redundancy Detection:** Identification of collinear hooks with suggested `useMemo` refactors.
+*   **Causal Detective:** Tracking the causality chain from effects to state setters to identify "Double Render Cycles".
+*   **Stability Circuit Breaker:** Forcefully halts recursive state oscillations before they freeze the browser tab.
+*   **Universal Support:** Officially supports **React Web**, **React Native**, and **Expo**.
+
+---
+
 ## See It In Action
 The Real-time HUD visualizes your state's "heartbeat" using the Canvas API. Below, watch as Basis detects collinear state, flags causal render loops, and activates the stability circuit breaker.
 
@@ -71,16 +81,6 @@ root.render(
   </BasisProvider>
 );
 ```
-
----
-
-## Key Capabilities
-
-*   **Temporal State Matrix (HUD):** A zero-overhead visualization of state signals. If rows pulse together, the architecture is redundant.
-*   **Redundancy Detection:** Identification of collinear hooks with suggested `useMemo` refactors.
-*   **Causal Detective:** Tracking the causality chain from effects to state setters to identify "Double Render Cycles".
-*   **Stability Circuit Breaker:** Forcefully halts recursive state oscillations before they freeze the browser tab.
-*   **Universal Support:** Officially supports **React Web**, **React Native**, and **Expo**.
 
 ---
 
