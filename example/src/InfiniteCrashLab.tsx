@@ -1,7 +1,6 @@
 // src/examples/InfiniteCrashLab.tsx
 
-
-import { useState, useEffect } from 'react-state-basis'
+import { useState, useEffect } from 'react'
 
 export const InfiniteCrashLab = () => {
     const [count, setCount] = useState(0)

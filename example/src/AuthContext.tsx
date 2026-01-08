@@ -1,4 +1,4 @@
-import { createContext, useState, type ReactNode } from 'react-state-basis'
+import { createContext, useState, type ReactNode } from 'react'
 
 export const AuthContext = createContext<any>(null)
 
