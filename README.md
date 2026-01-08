@@ -22,6 +22,8 @@ In Linear Algebra, a **Basis** is a set of linearly independent vectors that spa
 
 If two states always update in lockstep, they are **linearly dependent** (redundant). Basis detects these "Dimension Collapses" at runtime and provides deterministic refactor suggestions.
 
+👉 **For a formal mathematical specification and a deep dive into the theory, visit the [project Wiki](https://github.com/liovic/react-state-basis/wiki).**
+
 ---
 
 ## Key Capabilities
