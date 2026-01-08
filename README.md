@@ -84,6 +84,19 @@ root.render(
 );
 ```
 
+### Ignoring Files
+
+If you have specific files that are intentionally complex (e.g., low-level animation logic, third-party wrappers) and you want to exclude them from the Basis audit, simply add a comment at the top of the file:
+
+```javascript
+// @basis-ignore
+import { useState } from 'react';
+
+function NoisyComponent() {
+  // This file will be skipped by the Babel plugin and the Engine
+}
+```
+
 ---
 
 ## Basis vs Existing Tools
