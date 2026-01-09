@@ -1,43 +1,79 @@
 # Contributing to react-state-basis
 
-First, thank you for your interest. `react-state-basis` is a move away from "voodoo" heuristics toward **Formal Runtime Verification** of React architectures. 
+Thank you for your interest in contributing to react-state-basis.
 
-To maintain the mathematical integrity of the engine while scaling the ecosystem, we operate a two-track contribution model.
+This project is a **deterministic runtime analysis engine**. Its primary goal is to reliably detect architectural issues in React applications based on how state behaves over time.
+
+To maintain correctness and long-term stability, contributions follow a **two-track model**.
 
 ---
 
-## The Two-Track Policy
+## Contribution Tracks
 
-### 1. The Core Engine (The Math)
-The engine is a formal implementation of Linear Algebra applied to temporal signals. We model the React state-space using finite-dimensional vector spaces and inner product metrics.
+### 1. Core Engine (Invariant-driven analysis)
 
-*   **Theoretical Foundation:** We use Sheldon Axler’s *Linear Algebra Done Right* as our primary reference. 
-*   **Requirement:** The engine is a formal implementation of Linear Algebra applied to temporal signals. Every contribution to `src/core/math.ts` and `src/engine.ts` requires a rigorous understanding of the following concepts as defined by Sheldon Axler.
-*   **The Standard:** We do not accept heuristics or "close-enough" math. Every change must maintain the mathematical rank of the system and ensure deterministic signal analysis.
+The core engine is responsible for all detection logic and guarantees.
 
-### 2. The Ecosystem & DX (The Plumbing)
-We highly value contributions that bridge the gap between math and developer experience.
-*   **Integrations:** Adapters for Next.js (SWC), Remix, and Enterprise Webpack configs.
-*   **Global State:** Middleware for Zustand, Redux, or Jotai to pipe signals into the Basis engine.
-*   **Visualization:** Improving the Temporal Matrix HUD (Canvas optimization, GLSL shaders, or new themes).
-*   **Tooling:** Development of `rsb-init` CLI and automated refactoring hints.
+**Non-negotiable properties of the engine:**
+- Deterministic results (same inputs → same outputs)
+- Reproducible analysis across runs
+- No heuristic shortcuts
+- No behavior that depends on timing accidents or environment noise
+
+Changes to the core engine must preserve these invariants.
+
+#### Scope
+Files typically considered part of the core engine include:
+- `src/core.ts`
+- `src/engine/.ts`
+- Any logic that affects detection, comparison, or signal analysis
+
+#### Expectations
+Contributors working in this area are expected to:
+- Understand the existing invariants before proposing changes
+- Explain *why* a change preserves correctness
+- Avoid “close enough” logic, thresholds without justification, or empirical tuning
+
+If you are unsure whether a change belongs in the core engine, open an RFC issue first.
+
+---
+
+### 2. Ecosystem & Developer Experience
+
+Contributions outside the core engine are **strongly encouraged** and do not require deep knowledge of the engine internals.
+
+Examples include:
+- Framework integrations (Next.js, Remix, Webpack, etc.)
+- State library adapters (Zustand, Redux, Jotai)
+- HUD and visualization improvements
+- Tooling (CLI helpers, setup automation)
+- Documentation and examples
+
+These contributions must not alter core analysis behavior.
 
 ---
 
 ## Engineering Standards
 
-We are building a **scientific instrument**, not a logger. 
-1. **Zero-Overhead Principle:** Side effects within the engine are strictly forbidden.
-2. **Deterministic Logic:** All auditing results must be reproducible and predictable based on the temporal vectors.
+### Zero-Overhead Principle
+The engine must remain effectively invisible in production builds.
+
+- No side effects outside development mode
+- No leakage into production exports
+- No runtime cost once disabled
+
+### Determinism First
+Auditing results must depend **only** on observed state behavior — not timing variance, browser quirks, or execution order accidents.
 
 ---
 
 ## Workflow
 
-1. **Target Branch:** All Pull Requests must be opened against the **`dev` branch**. Pull Requests opened against `main` will be closed or asked to be retargeted. 
-2. **RFC First:** For major features or integrations, please open an Issue with the `RFC` (Request for Comments) tag. 
-3. **Atomic Commits:** Keep your changes focused. One PR = One logical improvement.
-4. **Ghost Mode Verification:** Ensure that your changes do not leak into the `production.ts` zero-op exports.
+- **Target branch:** `dev`
+  - Pull requests opened against `main` will be asked to retarget
+- **RFC first:** Required for changes affecting detection logic or engine behavior
+- **Atomic commits:** One pull request = one logical change
+- **Ghost Mode verification:** Ensure no changes leak into `production.ts` zero-op exports
 
 ---
 

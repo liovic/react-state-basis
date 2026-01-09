@@ -4,40 +4,101 @@
 
 <div align="center">
 
-# 📐 REACT-STATE-BASIS
-### **Real-time Architectural Auditor for React**
+# 📐 react-state-basis
+### Real-time architectural auditor for React
 
 [![npm version](https://img.shields.io/npm/v/react-state-basis.svg?style=flat-square)](https://www.npmjs.com/package/react-state-basis)
 [![GitHub stars](https://img.shields.io/github/stars/liovic/react-state-basis.svg?style=flat-square)](https://github.com/liovic/react-state-basis/stargazers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
 
-**Audit your React architecture without changing a single line of code.**
+**Audit your React architecture in development — without changing a single line of component code.**
 
 </div>
 
 ---
 
-### The Core Concept
-In Linear Algebra, a **Basis** is a set of linearly independent vectors that span a space. **Basis** treats your React application as a dynamic system where every state variable's update history is a signal over time.
+## What is react-state-basis?
 
-If two states always update in lockstep, they are **linearly dependent** (redundant). Basis detects these "Dimension Collapses" at runtime and provides deterministic refactor suggestions.
+**react-state-basis** is a development-time React utility that analyzes how state behaves *over time* and surfaces architectural issues that are difficult to detect with snapshot-based tools.
 
-👉 **For a formal mathematical specification and a deep dive into the theory, visit the [project Wiki](https://github.com/liovic/react-state-basis/wiki).**
+It focuses on **runtime behavior**, not values — helping you identify redundant state, hidden coupling, unstable update patterns, and effect-driven render loops while your app is running.
 
----
-
-## Key Capabilities
-
-*   **Temporal State Matrix (HUD):** A zero-overhead visualization of state signals. If rows pulse together, the architecture is redundant.
-*   **Redundancy Detection:** Identification of collinear hooks with suggested `useMemo` refactors.
-*   **Causal Detective:** Tracking the causality chain from effects to state setters to identify "Double Render Cycles".
-*   **Stability Circuit Breaker:** Forcefully halts recursive state oscillations before they freeze the browser tab.
-*   **Universal Support:** Officially supports **React Web**, **React Native**, and **Expo**.
+> This is an architectural diagnostic tool.  
+> It is not a state manager and not a replacement for React DevTools.
 
 ---
 
-## See It In Action
-The Real-time HUD visualizes your state's "heartbeat" using the Canvas API. Below, watch as Basis detects collinear state, flags causal render loops, and activates the stability circuit breaker.
+## What problems does it catch?
+
+In real React applications, many architectural issues don’t show up as errors:
+
+- Multiple state variables encode the same information
+- Effects create subtle feedback loops
+- Components re-render twice even though nothing “looks wrong”
+- State updates oscillate under load or user interaction
+
+These issues emerge **over time**, across renders.
+
+react-state-basis observes state updates as a timeline and flags structural patterns that indicate architectural debt.
+
+---
+
+## Key capabilities
+
+- **Temporal State Matrix (HUD)**  
+  A real-time visualization of state activity. If rows pulse together, the architecture is coupled or redundant.
+
+- **Redundant state detection**  
+  Identifies state variables that move together and suggests derived alternatives (e.g. `useMemo`).
+
+- **Causality tracing**  
+  Tracks `useEffect → setState` chains to expose hidden double-render cycles.
+
+- **Stability circuit breaker**  
+  Detects recursive update patterns and halts them before the browser tab locks up.
+
+- **Universal support**  
+  Works with **React Web**, **React Native**, and **Expo**.
+
+---
+
+## High-Level Insights
+
+### System Health Report
+For a bird's-eye view of your entire application's state-space, call the global reporter in your browser console or in code :
+
+```tsx
+window.printBasisReport();
+```
+
+This generates a correlation matrix and calculates your Basis Efficiency Score in real-time.
+
+---
+
+## How it works (high level)
+
+During development, react-state-basis observes state updates and compares how they evolve over short time windows.
+
+Instead of asking:
+> “What is the state right now?”
+
+It asks:
+> “How does this state behave relative to other states over time?”
+
+This allows the engine to detect redundancy, coupling, and instability that static analysis and snapshot tools can’t see.
+
+Implementation details are intentionally hidden from the public API.  
+The tool is designed to be **used**, not configured.
+
+👉 For a deeper dive into the internal model and formal specification, see the [project Wiki](https://github.com/liovic/react-state-basis/wiki).
+
+---
+
+## See it in action
+
+The optional HUD visualizes your application’s state “heartbeat” using the Canvas API.
+
+Below, Basis detects redundant state, flags effect-driven render loops, and activates the stability circuit breaker in real time.
 
 <p align="center">
   <img src="./assets/react-state-basis.gif" width="800" alt="React State Basis Demo" />
@@ -45,9 +106,11 @@ The Real-time HUD visualizes your state's "heartbeat" using the Canvas API. Belo
 
 ---
 
-## Zero-Friction Setup (Vite)
+## Zero-friction setup (Vite)
 
-As of **v0.3.0**, Basis is completely invisible. You no longer need to swap imports manually. It acts as a transparent proxy for `react` and `react-dom` during development.
+As of **v0.3.0**, react-state-basis runs transparently in development.
+
+You do **not** need to modify component imports or wrap individual hooks.
 
 ### 1. Install
 ```bash
@@ -55,9 +118,11 @@ npm i react-state-basis
 ```
 
 ### 2. Configure Vite
-Add the `basis` plugin to your `vite.config.ts`. It will automatically intercept standard React imports and instrument them with the auditing engine.
 
-```typescript
+Add the `basis` plugin to your `vite.config.ts`.
+It instruments React automatically during development.
+
+```tsx
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { basis } from 'react-state-basis/vite';
@@ -67,39 +132,40 @@ export default defineConfig({
     react({
       babel: { plugins: [['react-state-basis/plugin']] }
     }),
-    basis() // <--- That's it. Keep your "import from react" as is.
+    basis() // No import changes required
   ]
 });
 ```
 
-### 3. Initialize Provider
-Wrap your root component with the `BasisProvider` to enable the HUD and Engine.
+### 3. Initialize the provider
+
+Wrap your root component with `BasisProvider` to enable the engine and HUD.
+
 ```tsx
 import { BasisProvider } from 'react-state-basis';
 
 root.render(
   <BasisProvider debug={true}>
-     <App />
+    <App />
   </BasisProvider>
 );
 ```
 
-### Ignoring Files
+### Ignoring files
 
-If you have specific files that are intentionally complex (e.g., low-level animation logic, third-party wrappers) and you want to exclude them from the Basis audit, simply add a comment at the top of the file:
+If certain files are intentionally noisy (e.g. animation loops or low-level adapters), you can exclude them from auditing.
 
-```javascript
+Add this comment at the top of the file:
+
+```tsx
 // @basis-ignore
-import { useState } from 'react';
-
-function NoisyComponent() {
-  // This file will be skipped by the Babel plugin and the Engine
-}
 ```
+
+That file will be skipped by both the Babel plugin and the engine.
 
 ---
 
-## Basis vs Existing Tools
+## Basis vs existing tools
 
 | Feature | React DevTools | Why Did You Render | Basis 📐 |
 | :--- | :---: | :---: | :---: |
@@ -111,14 +177,14 @@ function NoisyComponent() {
 
 ---
 
-## Case Study: shadcn-admin Audit
-We ran Basis on a production-ready dashboard to verify its mathematical engine.
-*   **Result:** Verified **100% Basis Efficiency** (12/12 independent dimensions).
-*   **Insight:** Caught a minor "Double Render" bottleneck in the `useIsMobile` hook that standard linters missed.
+## Case study: shadcn-admin audit
 
-<p align="center">
-  <img src="./assets/shadcn-admin.png" width="800" alt="Real World Audit" />
-</p>
+We ran react-state-basis on a production-ready dashboard to validate its detection engine.
+- Result: 12 / 12 independent state dimensions
+- Insight: Identified a subtle double-render bottleneck in useIsMobile that static tooling missed
+
+
+<p align="center"> <img src="./assets/shadcn-admin.png" width="800" alt="Real World Audit" /> </p>
 
 ---
 
@@ -146,6 +212,5 @@ We ran Basis on a production-ready dashboard to verify its mathematical engine.
 
 ---
 
-<div align="center">
-Developed by LP | For engineers who treat software as applied mathematics. 🚀
-</div>
+
+<div align="center"> Developed by LP • A React utility for engineers who care about architectural correctness </div>
