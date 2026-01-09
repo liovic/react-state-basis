@@ -1,6 +1,6 @@
 {
   "name": "react-state-basis",
-  "version": "0.2.4",
+  "version": "0.3.0",
   "description": "A linear algebra-powered React architectural tool that detects redundant state and synchronization anti-patterns by modeling state transitions as vectors in a basis.",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -8,39 +8,39 @@
   "files": [
     "dist"
   ],
-"exports": {
-  ".": {
-    "types": "./dist/index.d.ts",
-    "development": {
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.js"
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "development": {
+        "import": "./dist/index.mjs",
+        "require": "./dist/index.js"
+      },
+      "production": {
+        "import": "./dist/production.mjs",
+        "require": "./dist/production.js"
+      },
+      "default": "./dist/production.mjs"
     },
-    "production": {
-      "import": "./dist/production.mjs",
-      "require": "./dist/production.js"
+    "./client": {
+      "types": "./dist/client.d.ts",
+      "import": "./dist/client.mjs",
+      "require": "./dist/client.js"
     },
-    "default": "./dist/production.mjs"
+    "./vite": {
+      "types": "./dist/vite-plugin.d.ts",
+      "import": "./dist/vite-plugin.mjs",
+      "require": "./dist/vite-plugin.js"
+    },
+    "./jsx-runtime": {
+      "import": "./dist/jsx-runtime.mjs",
+      "require": "./dist/jsx-runtime.js"
+    },
+    "./jsx-dev-runtime": {
+      "import": "./dist/jsx-dev-runtime.mjs",
+      "require": "./dist/jsx-dev-runtime.js"
+    },
+    "./plugin": "./dist/plugin.js"
   },
-  "./client": {
-    "types": "./dist/client.d.ts",
-    "import": "./dist/client.mjs",
-    "require": "./dist/client.js"
-  },
-  "./vite": {
-    "types": "./dist/vite-plugin.d.ts",
-    "import": "./dist/vite-plugin.mjs",
-    "require": "./dist/vite-plugin.js"
-  },
-  "./jsx-runtime": {
-    "import": "./dist/jsx-runtime.mjs",
-    "require": "./dist/jsx-runtime.js"
-  },
-  "./jsx-dev-runtime": {
-    "import": "./dist/jsx-dev-runtime.mjs",
-    "require": "./dist/jsx-dev-runtime.js"
-  },
-  "./plugin": "./dist/plugin.js"
-},
   "scripts": {
     "build": "tsup",
     "prepublishOnly": "npm run build",
