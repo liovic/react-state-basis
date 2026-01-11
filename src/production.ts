@@ -11,6 +11,7 @@ import type {
   Dispatch, 
   SetStateAction 
 } from 'react';
+import * as ReactDOM from 'react-dom';
 
 export type { DependencyList, EffectCallback, FC, ReactNode, Context, Reducer, Dispatch, SetStateAction };
 
@@ -44,6 +45,7 @@ export const useInsertionEffect = React.useInsertionEffect;
 export const useSyncExternalStore = React.useSyncExternalStore;
 export const useTransition = React.useTransition;
 export const useDeferredValue = React.useDeferredValue;
+export const unstable_batchedUpdates = ReactDOM.unstable_batchedUpdates;
 
 export const registerVariable = () => {};
 export const unregisterVariable = () => {};

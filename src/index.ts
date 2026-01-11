@@ -53,6 +53,7 @@ export const version = ReactNamespace.version;
 const RD: any = ReactDOMNamespace;
 export const createPortal = RD.createPortal;
 export const flushSync = RD.flushSync;
+export const unstable_batchedUpdates = RD.unstable_batchedUpdates;
 
 export { ReactNamespace as React };
 export default ReactNamespace;
