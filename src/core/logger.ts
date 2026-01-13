@@ -27,7 +27,8 @@ const STYLES = {
   `,
 
   dim: "color: #e84393; font-weight: bold;",
-  bold: "font-weight: bold;"
+  bold: "font-weight: bold;",
+  subText: "color: #636e72; font-size: 11px;"
 };
 
 const parseLabel = (label: string) => {
@@ -48,7 +49,7 @@ const logBasis = (message: string, ...styles: string[]) => {
 
 export const displayBootLog = (windowSize: number) => {
   logBasis(
-    `%cBasis%cAuditor%c Monitoring State Space | Window: ${windowSize} ticks`,
+    `%cBasis%cAuditor%c Structural Relationship Check | Window: ${windowSize} ticks`,
     STYLES.basis,
     STYLES.version,
     "color: #636e72; font-style: italic; margin-left: 8px;"
@@ -61,30 +62,32 @@ export const displayRedundancyAlert = (labelA: string, labelB: string, sim: numb
   const isCrossFile = infoA.file !== infoB.file;
 
   if (isWeb) {
-    console.group(`%c 📐 BASIS | DIMENSION COLLAPSE DETECTED `, STYLES.headerRed);
+    console.group(`%c 📐 BASIS | REDUNDANT STATE PATTERN `, STYLES.headerRed);
     console.log(`%c📍 Location: %c${isCrossFile ? `${infoA.file} & ${infoB.file}` : infoA.file}`, STYLES.bold, STYLES.location);
     console.log(
-      `%cAnalysis:%c Vectors %c${infoA.name}%c and %c${infoB.name}%c are collinear (redundant).`,
-      STYLES.bold, "", STYLES.label, "", STYLES.label, ""
+      `%cObservation:%c Variables %c${infoA.name}%c and %c${infoB.name}%c are Synchronized.\n` +
+      `%cThis means one variable is likely redundant and can be deleted to simplify the component.`,
+      STYLES.bold, "", STYLES.label, "", STYLES.label, "",
+      STYLES.subText
     );
     console.log(
-      `%cHow to fix:%c Project %c${infoB.name}%c as a derived value:
+      `%cHow to fix:%c Refactor %c${infoB.name}%c as a Computed Value (Projection):
 %c// 🛠️ Basis Fix: Remove useState, use useMemo
 const ${infoB.name} = useMemo(() => deriveFrom(${infoA.name}), [${infoA.name}]);%c`,
       "color: #00b894; font-weight: bold;", "",
       "color: #e84393; font-weight: bold;", "",
       STYLES.codeBlock, ""
     );
-    console.groupCollapsed(`%c 🔬 Proof Details `, "color: #636e72; font-size: 10px; cursor: pointer;");
+    console.groupCollapsed(`%c 🔬 Proof Details (Mathematical Basis) `, "color: #636e72; font-size: 10px; cursor: pointer;");
     console.table({
       "Similarity": `${(sim * 100).toFixed(2)}%`,
-      "Linear Dependency": "TRUE",
-      "Rank": totalDimensions - 1
+      "Condition": "Collinear Vectors (Dimension Collapse)",
+      "Rank Impact": `-1 (Rank: ${totalDimensions - 1})`
     });
     console.groupEnd();
     console.groupEnd();
   } else {
-    console.log(`[BASIS] REDUNDANCY DETECTED: ${infoA.name} <-> ${infoB.name} (${(sim * 100).toFixed(0)}% similarity)`);
+    console.log(`[BASIS] REDUNDANCY: ${infoA.name} <-> ${infoB.name} (Synchronized Updates)`);
     console.log(`Location: ${isCrossFile ? `${infoA.file} & ${infoB.file}` : infoA.file}`);
   }
 };
@@ -99,19 +102,20 @@ export const displayCausalHint = (targetLabel: string, sourceLabel: string) => {
     : target.file;
 
   if (isWeb) {
-    console.groupCollapsed(`%c 💡 BASIS | CAUSALITY (Sequential Update) `, STYLES.headerBlue);
+    console.groupCollapsed(`%c 💡 BASIS | SYNC LEAK (Double Render Cycle) `, STYLES.headerBlue);
     console.log(`%c📍 Location: %c${locationPath}`, STYLES.bold, STYLES.location);
     console.log(
       `%cSequence:%c %c${source.name}%c ➔ Effect ➔ %c${target.name}%c`,
       STYLES.bold, "", STYLES.label, "", STYLES.label, ""
     );
     console.log(
-      `%cObservation:%c Variable %c${target.name}%c is being manually synchronized. This creates a %c"Double Render Cycle"%c.`,
+      `%cObservation:%c Variable %c${target.name}%c is being manually synchronized from its source. 
+This creates a %cDouble Render Cycle%c (Performance Cost). Consider using useMemo or lifting state.`,
       STYLES.bold, "", STYLES.label, "", "color: #d63031; font-weight: bold;", ""
     );
     console.groupEnd();
   } else {
-    console.log(`[BASIS] CAUSALITY: ${source.name} ➔ ${target.name} (Double Render Cycle)`);
+    console.log(`[BASIS] SYNC LEAK: ${source.name} ➔ ${target.name} (Double Render)`);
   }
 };
 
@@ -120,12 +124,12 @@ export const displayInfiniteLoop = (label: string) => {
   if (isWeb) {
     console.group(`%c 🛑 BASIS CRITICAL | CIRCUIT BREAKER `, STYLES.headerRed);
     console.error(
-      `Infinite oscillation detected on: %c${info.name}%c\nExecution halted to prevent browser thread lock.`,
+      `Infinite oscillation detected on: %c${info.name}%c\nExecution halted to prevent browser thread lock. Check for circular useEffect dependencies.`,
       "color: white; background: #d63031; padding: 2px 4px; border-radius: 3px;", ""
     );
     console.groupEnd();
   } else {
-    console.log(`[BASIS CRITICAL] INFINITE LOOP ON: ${info.name}. Execution halted.`);
+    console.log(`[BASIS CRITICAL] CIRCUIT BREAKER: ${info.name}. Execution halted.`);
   }
 };
 
@@ -162,25 +166,26 @@ export const displayHealthReport = (
   });
 
   const systemRank = independentCount + clusters.length;
-  const efficiency = (systemRank / totalVars) * 100;
+  const healthScore = (systemRank / totalVars) * 100;
 
   if (isWeb) {
-    console.group(`%c 📊 BASIS | SYSTEM HEALTH REPORT `, STYLES.headerGreen);
+    console.group(`%c 📊 BASIS | ARCHITECTURAL HEALTH REPORT `, STYLES.headerGreen);
     console.log(
-      `%cBasis Efficiency: %c${efficiency.toFixed(1)}% %c(Rank: ${systemRank}/${totalVars})`,
+      `%cArchitectural Health Score: %c${healthScore.toFixed(1)}% %c(State Distribution: ${systemRank}/${totalVars})`,
       STYLES.bold,
-      `color: ${efficiency > 85 ? '#00b894' : '#d63031'}; font-size: 16px; font-weight: bold;`,
+      `color: ${healthScore > 85 ? '#00b894' : '#d63031'}; font-size: 16px; font-weight: bold;`,
       "color: #636e72; font-style: italic;"
     );
 
     if (clusters.length > 0) {
-      console.log(`%cDetected ${clusters.length} Redundancy Clusters:`, "font-weight: bold; color: #e17055; margin-top: 10px;");
+      console.log(`%cDetected ${clusters.length} Synchronized Update Clusters:`, "font-weight: bold; color: #e17055; margin-top: 10px;");
       clusters.forEach((cluster, idx) => {
         const names = cluster.map(l => parseLabel(l).name).join(' ⟷ ');
         console.log(` %c${idx + 1}%c ${names}`, "background: #e17055; color: white; border-radius: 50%; padding: 0 5px;", "font-family: monospace;");
       });
+      console.log("%c💡 Action: Variables in a cluster move together. Try refactoring them into a single state object or use useMemo for derived values.", STYLES.subText);
     } else {
-      console.log("%c✨ All state variables are linearly independent. Your Basis is optimal.", "color: #00b894; font-weight: bold; margin-top: 10px;");
+      console.log("%c✨ All state variables have optimal distribution. Your Basis is healthy.", "color: #00b894; font-weight: bold; margin-top: 10px;");
     }
 
     if (totalVars > 0 && totalVars < 15) {
@@ -200,9 +205,6 @@ export const displayHealthReport = (
     }
     console.groupEnd();
   } else {
-    console.log(`[BASIS HEALTH] Efficiency: ${efficiency.toFixed(1)}% (Rank: ${systemRank}/${totalVars})`);
-    if (clusters.length > 0) {
-      console.log(`Redundancy Clusters: ${clusters.length}`);
-    }
+    console.log(`[BASIS HEALTH] Score: ${healthScore.toFixed(1)}% (State Distribution: ${systemRank}/${totalVars})`);
   }
 };
