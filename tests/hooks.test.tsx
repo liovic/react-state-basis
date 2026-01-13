@@ -60,7 +60,7 @@ describe('Hooks Deep Coverage', () => {
       useEffect(() => { s(1); }, undefined, 'e');
     }, { wrapper });
 
-    expect(spy).toHaveBeenCalledWith(expect.stringContaining('BASIS | CAUSALITY'), expect.any(String));
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining('BASIS | SYNC LEAK'), expect.any(String));
     spy.mockRestore();
   });
 
@@ -127,7 +127,7 @@ describe('Hooks Deep Coverage', () => {
       useLayoutEffect(() => { s(1); }, [], 'layout_effect');
     }, { wrapper });
 
-    expect(spy).toHaveBeenCalledWith(expect.stringContaining('BASIS | CAUSALITY'), expect.any(String));
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining('BASIS | SYNC LEAK'), expect.any(String));
     spy.mockRestore();
   });
 

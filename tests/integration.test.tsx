@@ -8,7 +8,7 @@ describe('Basis System Integration', () => {
   beforeEach(() => { vi.useFakeTimers(); });
 
   it('identifies redundancy between synced states', async () => {
-    const groupSpy = vi.spyOn(console, 'group').mockImplementation(() => {});
+    const groupSpy = vi.spyOn(console, 'group').mockImplementation(() => { });
     const wrapper = ({ children }: any) => <BasisProvider>{children}</BasisProvider>;
 
     const { result } = renderHook(() => {
@@ -21,11 +21,11 @@ describe('Basis System Integration', () => {
       await act(async () => {
         result.current.setA(i + 1);
         result.current.setB(i + 1);
-        vi.advanceTimersByTime(30); 
+        vi.advanceTimersByTime(30);
       });
     }
 
-    expect(groupSpy).toHaveBeenCalledWith(expect.stringContaining('DIMENSION COLLAPSE DETECTED'), expect.any(String));
+    expect(groupSpy).toHaveBeenCalledWith(expect.stringContaining('BASIS | REDUNDANT STATE PATTERN'), expect.any(String));
     groupSpy.mockRestore();
   });
 });
