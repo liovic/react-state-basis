@@ -177,12 +177,29 @@ That file will be skipped by both the Babel plugin and the engine.
 
 ---
 
-## Case study: shadcn-admin audit
+## Case study: Excalidraw audit (114k+ ⭐)
 
-We ran react-state-basis on a production-ready dashboard to validate its detection engine.
-- Result: 12 / 12 independent state dimensions
-- Insight: Identified a subtle double-render bottleneck in useIsMobile that static tooling missed
+We audited the core editor of **Excalidraw** to test the sensitivity of the "Temporal Signal" model. Basis identified a specific architectural redundancy in the theme-synchronization logic.
 
+- **Outcome:** Detected a **Redundant State Pattern** between `editorTheme` and local `state`.
+- **Diagnosis:** Identified **Synchronized Updates** where a `useEffect` was manually mirroring props into state, creating a **Sync Leak (Double Render)**.
+- **Action:** Submitted [**PR #10637**](https://github.com/excalidraw/excalidraw/pull/10637) to refactor the redundancy into a **Computed Value (useMemo)**, restoring the component's architectural health.
+- **🔬 Proof:** Vectors were found to be collinear (Similarity > 0.92); Dimension Collapse confirmed.
+
+<p align="center"> 
+  <img src="./assets/excalidraw-audit.png" width="800" alt="Excalidraw Audit" /> 
+</p>
+
+---
+
+## Case study: shadcn-admin audit (10k+ ⭐)
+
+We ran Basis on a production-ready dashboard to validate the detection engine. While the core dashboard was highly optimized, Basis isolated a specific redundancy in a utility hook.
+
+- **Outcome:** Verified a high **Architectural Health Score** (12/12 unique dimensions) with one isolated **Redundant State Pattern**.
+- **Diagnosis:** Identified a **Sync Leak (Double Render)** in the `useIsMobile` hook. The state was being manually synchronized via `useEffect`, causing unnecessary render cycles on viewport changes.
+- **Action:** Submitted [**PR #274**](https://github.com/satnaing/shadcn-admin/pull/274) to refactor the redundancy using a cleaner subscription model, removing the effect-driven update.
+- **🔬 Proof:** Full Basis Efficiency verified across dashboard state-space; specific collinearity isolated in the mobile-utility subspace.
 
 <p align="center"> <img src="./assets/shadcn-admin.png" width="800" alt="Real World Audit" /> </p>
 
