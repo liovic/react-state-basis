@@ -5,100 +5,51 @@
 <div align="center">
 
 # 📐 react-state-basis
-### Real-time architectural auditor for React
+### Runtime state profiler for React
 
 [![npm version](https://img.shields.io/npm/v/react-state-basis.svg?style=flat-square)](https://www.npmjs.com/package/react-state-basis)
 [![GitHub stars](https://img.shields.io/github/stars/liovic/react-state-basis.svg?style=flat-square)](https://github.com/liovic/react-state-basis/stargazers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
 
-**Audit your React architecture in development — without changing a single line of component code.**
+**Catches redundant state and update chains while your React app runs.**
 
 </div>
 
 ---
 
-## What is react-state-basis?
+## What Does It Do?
 
-**react-state-basis** is a development-time React utility that analyzes how state behaves *over time* and surfaces architectural issues that are difficult to detect with snapshot-based tools.
+**react-state-basis** watches your React app in development and flags common architectural issues:
 
-It focuses on **runtime behavior**, not values — helping you identify redundant state, hidden coupling, unstable update patterns, and effect-driven render loops while your app is running.
+- **Redundant state** - Two states that always update together
+- **Update chains** - Effects that trigger more state updates (double renders)
+- **Infinite loops** - Circular dependencies that freeze your browser
+- **Tight coupling** - State variables that should be independent but aren't
 
-> This is an architectural diagnostic tool.  
-> It is not a state manager and not a replacement for React DevTools.
-
----
-
-## What problems does it catch?
-
-In real React applications, many architectural issues don’t show up as errors:
-
-- Multiple state variables encode the same information
-- Effects create subtle feedback loops
-- Components re-render twice even though nothing “looks wrong”
-- State updates oscillate under load or user interaction
-
-These issues emerge **over time**, across renders.
-
-react-state-basis observes state updates as a timeline and flags structural patterns that indicate architectural debt.
+It works by tracking *when* state updates happen, not *what* the values are.
 
 ---
 
-## Key capabilities
-
-- **Temporal State Matrix (HUD)**  
-  A real-time visualization of state activity. If rows pulse together, the architecture is coupled or redundant.
-
-- **Redundant state detection**  
-  Identifies state variables that move together and suggests derived alternatives (e.g. `useMemo`).
-
-- **Causality tracing**  
-  Tracks `useEffect → setState` chains to expose hidden double-render cycles.
-
-- **Stability circuit breaker**  
-  Detects recursive update patterns and halts them before the browser tab locks up.
-
-- **Universal support**  
-  Works with **React Web**, **React Native**, and **Expo**.
-
----
-
-## High-Level Insights
-
-### System Health Report
-For a bird's-eye view of your entire application's state-space, call the global reporter in your browser console or in code :
-
+## Quick Example
 ```tsx
-window.printBasisReport();
+// ❌ Basis will flag this
+const [user, setUser] = useState(null);
+const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+useEffect(() => {
+  setIsLoggedIn(!!user);  // Double render - flagged as redundant
+}, [user]);
+
+// ✅ Better
+const [user, setUser] = useState(null);
+const isLoggedIn = !!user;  // Computed, no second render
 ```
 
-This generates a correlation matrix and calculates your Basis Efficiency Score in real-time.
-
 ---
 
-## How it works (high level)
+## See It Work
 
-During development, react-state-basis observes state updates and compares how they evolve over short time windows.
-
-Instead of asking:
-> “What is the state right now?”
-
-It asks:
-> “How does this state behave relative to other states over time?”
-
-This allows the engine to detect redundancy, coupling, and instability that static analysis and snapshot tools can’t see.
-
-Implementation details are intentionally hidden from the public API.  
-The tool is designed to be **used**, not configured.
-
-👉 For a deeper dive into the internal model and formal specification, see the [project Wiki](https://github.com/liovic/react-state-basis/wiki).
-
----
-
-## See it in action
-
-The optional HUD visualizes your application’s state “heartbeat” using the Canvas API.
-
-Below, Basis detects redundant state, flags effect-driven render loops, and activates the stability circuit breaker in real time.
+The optional HUD shows which states update together in real-time:
 
 <p align="center">
   <img src="./assets/react-state-basis.gif" width="800" alt="React State Basis Demo" />
@@ -106,22 +57,14 @@ Below, Basis detects redundant state, flags effect-driven render loops, and acti
 
 ---
 
-## Zero-friction setup (Vite)
-
-As of **v0.3.0**, react-state-basis runs transparently in development.
-
-You do **not** need to modify component imports or wrap individual hooks.
+## Setup (Vite)
 
 ### 1. Install
 ```bash
 npm i react-state-basis
 ```
 
-### 2. Configure Vite
-
-Add the `basis` plugin to your `vite.config.ts`.
-It instruments React automatically during development.
-
+### 2. Add to `vite.config.ts`
 ```tsx
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
@@ -132,15 +75,12 @@ export default defineConfig({
     react({
       babel: { plugins: [['react-state-basis/plugin']] }
     }),
-    basis() // No import changes required
+    basis()
   ]
 });
 ```
 
-### 3. Initialize the provider
-
-Wrap your root component with `BasisProvider` to enable the engine and HUD.
-
+### 3. Wrap your app
 ```tsx
 import { BasisProvider } from 'react-state-basis';
 
@@ -151,83 +91,226 @@ root.render(
 );
 ```
 
-### Ignoring files
+That's it. The tool runs automatically in development.
 
-If certain files are intentionally noisy (e.g. animation loops or low-level adapters), you can exclude them from auditing.
+---
 
-Add this comment at the top of the file:
+## What You'll See
 
-```tsx
-// @basis-ignore
+### Console Alerts
+
+When Basis detects issues, you'll see styled console logs:
+
+**Redundant State:**
+```
+📐 BASIS | REDUNDANT STATE DETECTED
+📍 Location: TodoList.tsx
+Pattern: States "todos" and "count" update together 92% of the time.
+One is likely redundant and can be removed.
+
+Suggested fix: Convert "count" to a computed value
 ```
 
-That file will be skipped by both the Babel plugin and the engine.
+**Update Chains:**
+```
+💡 BASIS | UPDATE CHAIN DETECTED
+Sequence: user ➔ Effect ➔ isLoggedIn
+Pattern: "isLoggedIn" is synchronized via useEffect, causing a second render.
+```
+
+**Infinite Loops:**
+```
+🛑 BASIS | INFINITE LOOP DETECTED
+State variable "counter" is updating too rapidly (25+ times in 500ms).
+Execution halted to prevent browser freeze.
+```
+
+### Health Report
+
+Check your entire app's state health:
+```tsx
+window.printBasisReport();
+```
+
+Shows:
+- Efficiency score (how much redundant state you have)
+- Which states are independent vs synchronized
+- Correlation matrix
 
 ---
 
-## Basis vs existing tools
+## Testing on Real Projects
 
-| Feature | React DevTools | Why Did You Render | Basis 📐 |
-| :--- | :---: | :---: | :---: |
-| **Analyzes Values** | ✅ | ✅ | ❌ (Value-agnostic) |
-| **Tracks Timing/Ticks** | ❌ | ❌ | ✅ |
-| **Detects Redundancy** | ❌ | ❌ | ✅ (Linear Dependence) |
-| **Circuit Breaker** | ❌ | ❌ | ✅ (Halts Loops) |
-| **Prod. Overhead** | Low | Medium | **Zero** (Ghost Mode) |
+I've tested this on a few open-source projects to validate the detection:
 
----
+### Excalidraw (114k+ ⭐)
 
-## Case study: Excalidraw audit (114k+ ⭐)
-
-We audited the core editor of **Excalidraw** to test the sensitivity of the "Temporal Signal" model. Basis identified a specific architectural redundancy in the theme-synchronization logic.
-
-- **Outcome:** Detected a **Redundant State Pattern** between `editorTheme` and local `state`.
-- **Diagnosis:** Identified **Synchronized Updates** where a `useEffect` was manually mirroring props into state, creating a **Sync Leak (Double Render)**.
-- **Action:** Submitted [**PR #10637**](https://github.com/excalidraw/excalidraw/pull/10637) to refactor the redundancy into a **Computed Value (useMemo)**, restoring the component's architectural health.
-- **🔬 Proof:** Vectors were found to be collinear (Similarity > 0.92); Dimension Collapse confirmed.
+**Found:** Theme state being manually synchronized in `useEffect`  
+**Issue:** Double render on every theme change  
+**Fix:** [PR #10637](https://github.com/excalidraw/excalidraw/pull/10637) - replaced with computed value  
+**Status:** Pending review
 
 <p align="center"> 
   <img src="./assets/excalidraw-audit.png" width="800" alt="Excalidraw Audit" /> 
 </p>
 
+### shadcn-admin (10k+ ⭐)
+
+**Found:** Mobile detection hook with effect-based synchronization  
+**Issue:** Unnecessary re-renders on viewport resize  
+**Fix:** [PR #274](https://github.com/satnaing/shadcn-admin/pull/274) - cleaner subscription pattern  
+**Status:** Pending review
+
+<p align="center"> 
+  <img src="./assets/shadcn-admin.png" width="800" alt="shadcn Admin Audit" /> 
+</p>
+
+> **Note:** These are proposed improvements based on the tool's detection. The maintainers may choose different solutions or determine the patterns are intentional.
+
 ---
 
-## Case study: shadcn-admin audit (10k+ ⭐)
+## How It Works
 
-We ran Basis on a production-ready dashboard to validate the detection engine. While the core dashboard was highly optimized, Basis isolated a specific redundancy in a utility hook.
+### The Basic Idea
 
-- **Outcome:** Verified a high **Architectural Health Score** (12/12 unique dimensions) with one isolated **Redundant State Pattern**.
-- **Diagnosis:** Identified a **Sync Leak (Double Render)** in the `useIsMobile` hook. The state was being manually synchronized via `useEffect`, causing unnecessary render cycles on viewport changes.
-- **Action:** Submitted [**PR #274**](https://github.com/satnaing/shadcn-admin/pull/274) to refactor the redundancy using a cleaner subscription model, removing the effect-driven update.
-- **🔬 Proof:** Full Basis Efficiency verified across dashboard state-space; specific collinearity isolated in the mobile-utility subspace.
+The tool records the last 50 "ticks" (roughly 1 second) for each state variable:
+```
+useState("count"): [0,1,0,0,1,1,0,0,0,...]
+useState("total"): [0,1,0,0,1,1,0,0,0,...]
+                    ↑ Both update at same times = probably redundant
+```
 
-<p align="center"> <img src="./assets/shadcn-admin.png" width="800" alt="Real World Audit" /> </p>
+It uses **cosine similarity** (a standard correlation metric) to detect when states update together.
+
+If similarity > 0.88, it flags them as potentially redundant.
+
+### Why This Works
+
+Most architectural issues create **temporal patterns**:
+- Redundant state → always updates together
+- Update chains → one state updates, then another follows
+- Infinite loops → same state updates rapidly
+
+The tool watches for these patterns and alerts you.
+
+### What It Doesn't Do
+
+❌ Doesn't analyze your code statically  
+❌ Doesn't read variable values  
+❌ Doesn't prove mathematical correctness  
+❌ Doesn't replace code review
+
+It's a **diagnostic tool** - it points out patterns worth investigating.
+
+---
+
+## Production Safety
+
+In production builds, the entire tool is removed:
+```json
+// package.json - automatic based on NODE_ENV
+"exports": {
+  ".": {
+    "development": "./dist/index.mjs",
+    "production": "./dist/production.mjs",  // Zero-op shims
+    "default": "./dist/production.mjs"
+  }
+}
+```
+
+**Zero runtime overhead. Zero bundle size increase.**
+
+---
+
+## Comparison to Other Tools
+
+| Tool | What It Detects | When |
+|------|----------------|------|
+| **React DevTools** | Component renders, props/state values | After the fact |
+| **Why Did You Render** | Unnecessary re-renders | During render |
+| **ESLint exhaustive-deps** | Missing effect dependencies | Static analysis |
+| **react-state-basis** | Redundant state, update chains, loops | Runtime patterns |
+
+They're complementary - use them together.
+
+---
+
+## Skipping Files
+
+Add this comment to skip noisy files:
+```tsx
+// @basis-ignore
+```
+
+Good for:
+- Animation loops
+- High-frequency timers  
+- WebSocket handlers
+- Performance-critical code
+
+---
+
+## Limitations
+
+### Current Version (v0.3.x)
+
+**What works well:**
+- ✅ Detecting obvious redundant state
+- ✅ Flagging effect-driven update chains
+- ✅ Catching infinite loops
+- ✅ Works in typical React apps
+
+**Known issues:**
+- ⚠️ May miss delayed chains (>20ms apart)
+- ⚠️ Can flag intentional patterns as issues
+- ⚠️ Complex multi-way dependencies might not be caught
+- ⚠️ Requires judgment to interpret results
+
+**False positives happen.** Always verify before refactoring.
 
 ---
 
 ## Roadmap
 
-#### **v0.2.x - Signal Intelligence & Visual Foundation (Current)** ✅
-- [x] **Full React Hook Parity:** Support for all standard hooks and React Native/Expo.
-- [x] **React 19 Ready:** Full support for `use()`, `useOptimistic()`, and `useActionState()`.
-- [x] **Temporal Matrix HUD:** Real-time Canvas-based visualization of state signals.
-- [x] **Causality Engine:** Detection of sequential sync-leaks and double-render cycles.
-- [x] **Ghost Mode:** Zero-op production exports with no bundle overhead.
-- [x] **95% Test Coverage:** Verified mathematical engine.
+### v0.4.0 (Next)
+- [ ] Zustand integration
+- [ ] Redux middleware
+- [ ] Better false positive filtering
+- [ ] Automated fix suggestions
 
-#### **v0.3.0 - Global State & Ecosystem**
-- [x] **Zero-Config Vite Plugin:** Automatic aliasing for `react` and `react-dom`.
-- [x] **Babel Auto-Instrumentation:** Automatic hook labeling without code changes.
-- [ ] **Zustand Middleware:** Auditing global-to-local state redundancy.
-- [ ] **Redux Integration:** Connecting the causal engine to Redux dispatch cycles.
-- [ ] **CLI Initializer:** `rsb-init` to automatically configure Babel/Vite plugins.
-- [ ] **Context Auditor:** Tracking signal collisions across multiple React Context providers.
-
-#### **v0.4.0 - Topology & Automation**
-- [ ] **State-Space Topology Map:** 2D force-directed graph showing coupling clusters.
-- [ ] **Automated Fix Hints:** Advanced console codemods for converting redundant state to `useMemo`.
+### v0.5.0 (Future)
+- [ ] Visual state dependency graph
+- [ ] Domain isolation analysis
+- [ ] Historical trend tracking
 
 ---
 
+## Contributing
 
-<div align="center"> Developed by LP • A React utility for engineers who care about architectural correctness </div>
+Found a bug? Have an idea? Open an issue or PR.
+
+For technical details on how the detection works, see the [Wiki](https://github.com/liovic/react-state-basis/wiki).
+
+---
+
+## FAQ
+
+**Q: Will this slow down my app?**  
+A: Only in development. Production builds are zero-overhead.
+
+**Q: Do I have to change my code?**  
+A: No. The Babel plugin instruments hooks automatically.
+
+**Q: What if it flags something that's not a problem?**  
+A: Use your judgment. It's a diagnostic tool, not gospel.
+
+**Q: Why "basis"?**  
+A: In linear algebra, a "basis" is a minimal set of independent vectors. The name reflects the goal of finding your app's minimal independent state.
+
+---
+
+<div align="center">
+
+Built by [LP](https://github.com/liovic) • MIT License
+
+</div>

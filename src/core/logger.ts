@@ -81,7 +81,7 @@ const ${infoB.name} = useMemo(() => deriveFrom(${infoA.name}), [${infoA.name}]);
     console.groupCollapsed(`%c 🔬 Proof Details (Mathematical Basis) `, "color: #636e72; font-size: 10px; cursor: pointer;");
     console.table({
       "Similarity": `${(sim * 100).toFixed(2)}%`,
-      "Condition": "Collinear Vectors (Dimension Collapse)",
+      "Condition": "Collinear Vectors",
       "Rank Impact": `-1 (Rank: ${totalDimensions - 1})`
     });
     console.groupEnd();
