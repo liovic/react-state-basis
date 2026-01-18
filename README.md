@@ -320,11 +320,25 @@ These tools are complementary - use them together for best results.
 
 ## Performance Impact (Measured)
 
-**Development Mode:**
-- Overhead per state update: ~0.3ms
-- Analysis cost (every 5 ticks): ~2-4ms for typical apps
-- Frame budget impact: <1% when idle, ~5-10% during active development
-- High-refresh compatible: Analysis runs asynchronously off the render path
+**Development Mode**
+
+These measurements were taken using the built-in **Stress Lab** with 100 active hooks and continuous state updates, observed in Chrome DevTools Performance and Web Vitals panels. 
+
+Location: `/example`
+
+**Observed impact:**
+
+* **Per state update overhead:** ~0.3ms (lightweight hook instrumentation)
+* **Analysis pass (every ~100ms / 5 ticks):** ~2–4ms in typical applications
+* **Frame budget impact:** <1% when idle, ~5–10% during active stress testing
+* **Render path safety:** Analysis runs asynchronously, outside of React’s render cycle
+
+> Results will vary by hardware, browser, and workload. Use the Stress Lab to reproduce and compare Basis ON vs OFF in your own environment.
+
+<p align="center"> 
+  <img src="./assets/performance-test.png" width="800" alt="shadcn Admin Audit" /> 
+</p>
+
 
 **Production Mode:**
 - Overhead: ~0.01ms per hook call (negligible wrapper overhead)

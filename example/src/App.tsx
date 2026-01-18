@@ -1,3 +1,5 @@
+// src/App.tsx
+
 import { BasisProvider } from 'react-state-basis'
 import { useContext } from 'react'
 import { AuthProvider, AuthContext } from './AuthContext'
@@ -5,6 +7,7 @@ import { ThemeProvider, ThemeContext } from './ThemeContext'
 import { WeatherLab } from './WeatherLab'
 import { BooleanEntanglement } from './BooleanEntanglement'
 import { InfiniteCrashLab } from './InfiniteCrashLab'
+import { StressLab } from './StressLab'
 
 function GlobalNeuralController() {
   const { login, logout } = useContext(AuthContext)
@@ -59,6 +62,7 @@ export default function App() {
               <WeatherLab />
               <BooleanEntanglement />
               <InfiniteCrashLab />
+              <StressLab />
             </div>
 
             <GlobalNeuralController />
