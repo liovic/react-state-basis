@@ -6,7 +6,7 @@ import {
   useMemo as reactUseMemo,
   useReducer as reactUseReducer,
   useContext as reactUseContext,
-  useSyncExternalStore as reactUseSyncExternalStore, 
+  useSyncExternalStore as reactUseSyncExternalStore,
   createContext as reactCreateContext,
   useRef as reactUseRef,
   useLayoutEffect as reactUseLayoutEffect,
@@ -21,14 +21,28 @@ import {
 import { registerVariable, unregisterVariable, recordUpdate, beginEffectTracking, endEffectTracking, config } from './engine';
 import * as engine from './engine';
 
+let anonCount = 0;
+const getFallbackLabel = (type: string) => `anon_${type}_${anonCount++}`;
+
 type GetReducerState<R extends React.Reducer<any, any>> = R extends React.Reducer<infer S, any> ? S : never;
 type GetReducerAction<R extends React.Reducer<any, any>> = R extends React.Reducer<any, infer A> ? A : never;
 
 export function useState<S>(initialState: S | (() => S), label?: string): [S, React.Dispatch<React.SetStateAction<S>>] {
   const [val, setVal] = reactUseState(initialState);
-  const effectiveLabel = label || 'anonymous_state';
-  reactUseEffect(() => { registerVariable(effectiveLabel); return () => unregisterVariable(effectiveLabel); }, [effectiveLabel]);
-  const setter = reactUseCallback((newValue: any) => { if (recordUpdate(effectiveLabel)) setVal(newValue); }, [effectiveLabel, setVal]);
+
+  const effectiveLabel = reactUseRef(label || getFallbackLabel('state')).current;
+
+  reactUseEffect(() => {
+    registerVariable(effectiveLabel);
+    return () => unregisterVariable(effectiveLabel);
+  }, [effectiveLabel]);
+
+  const setter = reactUseCallback((newValue: any) => {
+    if (recordUpdate(effectiveLabel)) {
+      setVal(newValue);
+    }
+  }, [effectiveLabel]);
+
   return [val, setter];
 }
 
@@ -37,12 +51,34 @@ export function useRef<T>(initialValue: T | null): React.RefObject<T>;
 export function useRef<T = undefined>(): React.MutableRefObject<T | undefined>;
 export function useRef<T>(initialValue?: T, _label?: string): any { return reactUseRef(initialValue); }
 
-export function useReducer<R extends React.Reducer<any, any>, I>(reducer: R, initialArg: I, init?: any, label?: string): [GetReducerState<R>, React.Dispatch<GetReducerAction<R>>] {
-  const effectiveLabel = typeof init === 'string' ? init : (label || 'anonymous_reducer');
-  const reactInit = typeof init === 'function' ? init : undefined;
-  const [state, dispatch] = reactUseReducer(reducer, initialArg, reactInit);
-  reactUseEffect(() => { registerVariable(effectiveLabel); return () => unregisterVariable(effectiveLabel); }, [effectiveLabel]);
-  const basisDispatch = reactUseCallback((action: any) => { if (recordUpdate(effectiveLabel)) dispatch(action); }, [effectiveLabel, dispatch]);
+export function useReducer<R extends React.Reducer<any, any>, I>(
+  reducer: R,
+  initialArg: I,
+  init?: any,
+  label?: string
+): [GetReducerState<R>, React.Dispatch<GetReducerAction<R>>] {
+
+  const isLazyInit = typeof init === 'function';
+  const providedLabel = isLazyInit ? label : (typeof init === 'string' ? init : undefined);
+  const effectiveLabel = reactUseRef(providedLabel || getFallbackLabel('reducer')).current;
+
+  const [state, dispatch] = reactUseReducer(
+    reducer,
+    initialArg,
+    isLazyInit ? init : undefined
+  );
+
+  reactUseEffect(() => {
+    registerVariable(effectiveLabel);
+    return () => unregisterVariable(effectiveLabel);
+  }, [effectiveLabel]);
+
+  const basisDispatch = reactUseCallback((action: any) => {
+    if (recordUpdate(effectiveLabel)) {
+      dispatch(action);
+    }
+  }, [effectiveLabel]);
+
   return [state, basisDispatch] as any;
 }
 
@@ -110,7 +146,7 @@ export function useOptimistic<S, P>(
   label?: string
 ): [S, (payload: P) => void] {
   const effectiveLabel = label || 'anonymous_optimistic';
-  
+
   reactUseEffect(() => {
     registerVariable(effectiveLabel);
     return () => unregisterVariable(effectiveLabel);
@@ -133,14 +169,14 @@ export function useActionState<State, Payload>(
   permalink?: string,
   label?: string
 ): [state: State, dispatch: (payload: Payload) => void, isPending: boolean] {
-  
+
   const isLabelAsThirdArg = typeof permalink === 'string' && label === undefined;
   const actualPermalink = isLabelAsThirdArg ? undefined : permalink;
   const effectiveLabel = isLabelAsThirdArg ? (permalink as string) : (label || 'anonymous_action_state');
 
   const [state, reactDispatch, isPending] = (React as any).useActionState(
-    action, 
-    initialState, 
+    action,
+    initialState,
     actualPermalink
   ) as [State, (p: Payload) => void, boolean];
 
