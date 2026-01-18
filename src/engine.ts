@@ -1,11 +1,13 @@
+// src/engine.ts
+
 import * as UI from './core/logger';
-import { calculateCosineSimilarity } from './core/math';
-import { 
-  WINDOW_SIZE, 
-  SIMILARITY_THRESHOLD, 
-  LOOP_THRESHOLD, 
-  LOOP_WINDOW_MS, 
-  ANALYSIS_INTERVAL 
+import { calculateSimilarityWithOffset, calculateCosineSimilarity } from './core/math';
+import {
+  WINDOW_SIZE,
+  SIMILARITY_THRESHOLD,
+  LOOP_THRESHOLD,
+  LOOP_WINDOW_MS,
+  ANALYSIS_INTERVAL
 } from './core/constants';
 
 interface BasisEngineState {
@@ -56,28 +58,63 @@ export const configureBasis = (newConfig: Partial<{ debug: boolean }>) => {
   }
 };
 
+/**
+ * HELPER: Compares two vectors across three temporal planes:
+ * 1. Sync (Same 20ms window)
+ * 2. Lag A (B follows A) (A happens at T, B happens at T+1)
+ * 3. Lag B (A follows B) (B happens at T, A happens at T+1)
+ */
+const getTemporalSimilarity = (vecA: number[], vecB: number[]) => {
+  const L = vecA.length;
+
+  const sync = calculateSimilarityWithOffset(vecA, vecB, 0, 0, L);
+  const bFollowsA = calculateSimilarityWithOffset(vecA, vecB, 0, 1, L - 1);
+  const aFollowsB = calculateSimilarityWithOffset(vecA, vecB, 1, 0, L - 1);
+
+  return { sync, bFollowsA, aFollowsB };
+};
+
 const analyzeBasis = () => {
   if (!instance.config.debug) {
     instance.redundantLabels.clear();
     return;
   }
 
-  const entries = Array.from(instance.history.entries());
+  // FILTER: Only look at variables that have updated at least twice.
+  const entries = Array.from(instance.history.entries()).filter(([_, vec]) => {
+    let sum = 0;
+    for (let i = 0; i < vec.length; i++) sum += vec[i];
+    return sum >= 2;
+  });
+
   if (entries.length < 2) return;
 
   const newRedundant = new Set<string>();
 
-  entries.forEach(([labelA, vecA], i) => {
-    entries.slice(i + 1).forEach(([labelB, vecB]) => {
-      const sim = calculateCosineSimilarity(vecA, vecB);
-      
-      if (sim > SIMILARITY_THRESHOLD) {
-        newRedundant.add(labelA);
-        newRedundant.add(labelB);
-        UI.displayRedundancyAlert(labelA, labelB, sim, instance.history.size);
+  for (let i = 0; i < entries.length; i++) {
+    for (let j = i + 1; j < entries.length; j++) {
+      const [labelA, vecA] = entries[i];
+      const [labelB, vecB] = entries[j];
+
+      const { sync, bFollowsA, aFollowsB } = getTemporalSimilarity(vecA, vecB);
+
+      const maxSim = Math.max(sync, bFollowsA, aFollowsB);
+
+      if (maxSim > SIMILARITY_THRESHOLD) {
+        if (sync === maxSim) {
+          newRedundant.add(labelA);
+          newRedundant.add(labelB);
+          UI.displayRedundancyAlert(labelA, labelB, sync);
+        }
+        else if (bFollowsA === maxSim) {
+          UI.displayCausalHint(labelB, labelA, 'math');
+        }
+        else if (aFollowsB === maxSim) {
+          UI.displayCausalHint(labelA, labelB, 'math');
+        }
       }
-    });
-  });
+    }
+  }
 
   instance.redundantLabels.clear();
   newRedundant.forEach(label => instance.redundantLabels.add(label));
@@ -91,25 +128,25 @@ export const recordUpdate = (label: string): boolean => {
   // CIRCUIT BREAKER
   instance.updateLog.push({ label, ts: now });
   instance.updateLog = instance.updateLog.filter(e => now - e.ts < LOOP_WINDOW_MS);
-  
+
   if (instance.updateLog.filter(e => e.label === label).length > LOOP_THRESHOLD) {
     UI.displayInfiniteLoop(label);
     return false;
   }
 
-  // CAUSAL HINT
+  // DIRECT CAUSAL TRACKING
   if (instance.currentEffectSource && instance.currentEffectSource !== label) {
-    UI.displayCausalHint(label, instance.currentEffectSource);
+    UI.displayCausalHint(label, instance.currentEffectSource, 'tracking');
   }
 
-  // BATCHING (20ms)
   instance.currentTickBatch.add(label);
 
   if (!instance.isBatching) {
     instance.isBatching = true;
+
     setTimeout(() => {
       instance.tick++;
-      
+
       instance.history.forEach((vec, l) => {
         vec.shift();
         vec.push(instance.currentTickBatch.has(l) ? 1 : 0);
@@ -117,7 +154,7 @@ export const recordUpdate = (label: string): boolean => {
 
       instance.currentTickBatch.clear();
       instance.isBatching = false;
-      
+
       if (instance.tick % ANALYSIS_INTERVAL === 0) {
         analyzeBasis();
       }
@@ -128,16 +165,16 @@ export const recordUpdate = (label: string): boolean => {
 };
 
 // LIFECYCLE 
-export const beginEffectTracking = (label: string) => { 
-  if (instance.config.debug) instance.currentEffectSource = label; 
+export const beginEffectTracking = (label: string) => {
+  if (instance.config.debug) instance.currentEffectSource = label;
 };
 
-export const endEffectTracking = () => { 
-  instance.currentEffectSource = null; 
+export const endEffectTracking = () => {
+  instance.currentEffectSource = null;
 };
 
 export const registerVariable = (label: string) => {
-  if (!instance.config.debug) return; 
+  if (!instance.config.debug) return;
 
   if (!instance.history.has(label)) {
     instance.history.set(label, new Array(WINDOW_SIZE).fill(0));

@@ -41,7 +41,10 @@ describe('Hooks Deep Coverage', () => {
 
   it('useState: handles anonymous state', () => {
     renderHook(() => useState(0), { wrapper });
-    expect(__test__.history.has('anonymous_state')).toBe(true);
+
+    const keys = Array.from(__test__.history.keys()) as string[];
+
+    expect(keys.some(k => k.startsWith('anon_state_'))).toBe(true);
   });
 
   it('useMemo: logs, memoizes and handles undefined deps', () => {
@@ -60,7 +63,10 @@ describe('Hooks Deep Coverage', () => {
       useEffect(() => { s(1); }, undefined, 'e');
     }, { wrapper });
 
-    expect(spy).toHaveBeenCalledWith(expect.stringContaining('BASIS | SYNC LEAK'), expect.any(String));
+    expect(spy).toHaveBeenCalledWith(
+      expect.stringContaining('SYNC LEAK'),
+      expect.any(String)
+    );
     spy.mockRestore();
   });
 
@@ -87,7 +93,10 @@ describe('Hooks Deep Coverage', () => {
 
     it('handles anonymous reducer', () => {
       renderHook(() => useReducer((s: any) => s, 0), { wrapper });
-      expect(__test__.history.has('anonymous_reducer')).toBe(true);
+
+      const keys = Array.from(__test__.history.keys()) as string[];
+
+      expect(keys.some(k => k.startsWith('anon_reducer_'))).toBe(true);
     });
   });
 
@@ -127,7 +136,10 @@ describe('Hooks Deep Coverage', () => {
       useLayoutEffect(() => { s(1); }, [], 'layout_effect');
     }, { wrapper });
 
-    expect(spy).toHaveBeenCalledWith(expect.stringContaining('BASIS | SYNC LEAK'), expect.any(String));
+    expect(spy).toHaveBeenCalledWith(
+      expect.stringContaining('SYNC LEAK'),
+      expect.any(String)
+    );
     spy.mockRestore();
   });
 
