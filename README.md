@@ -368,10 +368,15 @@ Location: `/example`
 
 ## Roadmap
 
+### v0.4.x
+- [x] **v0.4.0**: Temporal Cross-Correlation Engine (Lead-Lag Analysis)
+- [ ] v0.4.1: Density Filtering (Eliminate false positives from animations/sliders)
+- [ ] v0.4.2: Ring Buffer (Zero-jank memory management for 500+ hooks)
+- [ ] v0.4.3: Custom Sensitivity (#23) 
+
 ### v0.5.0 (Planned)
 - [ ] Zustand & Redux middleware integration
 - [ ] Visual dependency graph in HUD
-- [ ] Automated fix suggestions with one-click apply
 - [ ] Historical trend tracking across sessions
 
 ### Future Ideas
