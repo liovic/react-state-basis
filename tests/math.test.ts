@@ -1,24 +1,23 @@
 // tests/math.test.ts
 
 import { describe, it, expect } from 'vitest';
-import { calculateCosineSimilarity } from '../src/core/math';
+import { calculateSimilarityWithOffset } from '../src/core/math';
 
-describe('calculateCosineSimilarity', () => {
-  it('returns 1 for identical vectors', () => {
-    const a = [1, 0, 1];
-    const b = [1, 0, 1];
-    expect(calculateCosineSimilarity(a, b)).toBeCloseTo(1);
+describe('High-Performance Offset Math', () => {
+  it('returns 1 for perfectly aligned offset signals', () => {
+    const a = [1, 0, 1, 0, 0];
+    const b = [0, 1, 0, 1, 0];
+    
+    const sync = calculateSimilarityWithOffset(a, b, 0, 0, 5);
+    expect(sync).toBe(0);
+
+    const lag = calculateSimilarityWithOffset(a, b, 0, 1, 4);
+    expect(lag).toBeCloseTo(1, 10); 
   });
 
-  it('returns 0 for orthogonal vectors', () => {
-    const a = [1, 0];
-    const b = [0, 1];
-    expect(calculateCosineSimilarity(a, b)).toBeCloseTo(0);
-  });
-
-  it('handles zero vectors gracefully', () => {
+  it('handles empty/zero signals without NaN', () => {
     const a = [0, 0, 0];
     const b = [0, 0, 0];
-    expect(calculateCosineSimilarity(a, b)).toBe(0);
+    expect(calculateSimilarityWithOffset(a, b, 0, 0, 3)).toBe(0);
   });
 });
