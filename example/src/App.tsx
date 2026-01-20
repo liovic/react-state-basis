@@ -1,5 +1,3 @@
-// src/App.tsx
-
 import { BasisProvider } from 'react-state-basis'
 import { useContext } from 'react'
 import { AuthProvider, AuthContext } from './AuthContext'
@@ -8,20 +6,21 @@ import { WeatherLab } from './WeatherLab'
 import { BooleanEntanglement } from './BooleanEntanglement'
 import { InfiniteCrashLab } from './InfiniteCrashLab'
 import { StressLab } from './StressLab'
+import './App.css'
 
 function GlobalNeuralController() {
   const { login, logout } = useContext(AuthContext)
   const { setTheme } = useContext(ThemeContext)
 
   const handleGlobalSync = () => {
-    // ⚠️ CROSS-CONTEXT REDUNDANCY
-    // Changing user i theme at the same time from 2 providers
     let i = 0;
     const interval = setInterval(() => {
       if (i % 2 === 0) {
-        login({ name: 'Admin' }); setTheme('dark');
+        login({ name: 'Admin' });
+        setTheme('dark');
       } else {
-        logout(); setTheme('light');
+        logout();
+        setTheme('light');
       }
       i++;
       if (i > 10) clearInterval(interval);
@@ -29,21 +28,51 @@ function GlobalNeuralController() {
   }
 
   return (
-    <div style={{ marginTop: '20px', textAlign: 'center' }}>
-      <button
-        onClick={handleGlobalSync}
-        style={{ padding: '15px', background: '#00ff41', color: '#000', fontWeight: 'bold' }}
-      >
-        INITIATE GLOBAL SYNC (Cross-Context Test)
-      </button>
-      <br />
-      <button
-        onClick={() => (window as any).printBasisReport()}
-        style={{ marginTop: '10px', background: '#3498db', color: '#fff' }}
-      >
-        Generate System Health Report
-      </button>
+    <div style={{
+      gridColumn: 'span 2',
+      marginTop: '20px',
+      padding: '24px',
+      background: 'rgba(255,255,255,0.02)',
+      border: '1px solid var(--border)',
+      borderRadius: '8px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between'
+    }}>
+      <div>
+        <div className="card-tag">SYSTEM_COMMAND_CENTER</div>
+        <h2 style={{ margin: 0, fontSize: '1rem' }}>Global Override</h2>
+        <p className="mono" style={{ fontSize: '10px', color: 'var(--slate-500)', marginTop: '4px' }}>
+          Simulating cross-context entanglement between Auth and Theme providers.
+        </p>
+      </div>
+
+      <div style={{ display: 'flex', gap: '12px' }}>
+        <button
+          onClick={handleGlobalSync}
+          style={{ background: '#0f172a', color: '#fff', padding: '12px 24px' }}
+        >
+          INITIATE_SYSTEM_SYNC
+        </button>
+      </div>
     </div>
+  )
+}
+
+function Header() {
+  return (
+    <header>
+      <div>
+        <h1 className="mono" style={{ fontSize: '1.2rem', margin: 0, letterSpacing: '-1px' }}>
+          BASIS<span style={{ color: 'var(--cyan)' }}>_LABS</span>
+        </h1>
+        <div className="card-tag">TEMPORAL_SIGNAL_CORE</div>
+      </div>
+
+      <button className="secondary" style={{ margin: 0 }} onClick={() => (window as any).printBasisReport()}>
+        GENERATE_HEALTH_REPORT
+      </button>
+    </header>
   )
 }
 
@@ -52,23 +81,21 @@ export default function App() {
     <BasisProvider debug={true}>
       <AuthProvider>
         <ThemeProvider>
-          <div style={{
-            background: '#050505', minHeight: '100vh', color: '#00ff41',
-            padding: '40px', fontFamily: '"Courier New", monospace'
-          }}>
-            <h1 style={{ borderBottom: '2px solid #00ff41' }}>BASIS</h1>
+          <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+            <Header />
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+            <div className="dashboard-grid">
+              <GlobalNeuralController />
               <WeatherLab />
               <BooleanEntanglement />
               <InfiniteCrashLab />
               <StressLab />
+
+
             </div>
 
-            <GlobalNeuralController />
-
-            <div style={{ marginTop: '30px', color: '#888', fontSize: '12px' }}>
-              [SYSTEM] Watching for collinear state vectors in multi-dimensional space...
+            <div style={{ marginTop: 'auto', padding: '20px', textAlign: 'center', opacity: 0.2, fontSize: '8px' }} className="mono">
+              [DEBUG_MODE_ACTIVE] // MONITORING_COLLINEAR_STATE_VECTORS
             </div>
           </div>
         </ThemeProvider>

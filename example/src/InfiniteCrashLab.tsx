@@ -1,5 +1,3 @@
-// src/examples/InfiniteCrashLab.tsx
-
 import { useState, useEffect } from 'react'
 
 export const InfiniteCrashLab = () => {
@@ -7,24 +5,25 @@ export const InfiniteCrashLab = () => {
     const [isCrashing, setIsCrashing] = useState(false)
 
     useEffect(() => {
-        if (isCrashing) {
-            setCount(prev => prev + 1)
-        }
+        if (isCrashing) setCount(prev => prev + 1)
     }, [count, isCrashing])
 
     return (
-        <div style={{ padding: '15px', border: '1px solid #ff4757', margin: '10px' }}>
-            <h4 style={{ color: '#ff4757' }}>🛑 3. Infinite Loop Trap</h4>
-            <p>Current Count: {count}</p>
-            <button
-                onClick={() => setIsCrashing(true)}
-                style={{ background: '#ff4757', color: 'white' }}
-            >
-                TRIGGER RECURSIVE CRASH
+        <div className="diagnostic-card">
+            <div className="card-tag" style={{ color: 'var(--red)' }}>03 // RECURSION_ALARM</div>
+            <h2>Infinite Render Loop</h2>
+
+            <div className="data-readout" style={{ fontSize: '3.5rem', color: count > 0 ? 'var(--red)' : 'var(--text-primary)' }}>
+                {count.toString().padStart(2, '0')}
+            </div>
+
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '20px' }} className="mono">
+                STATUS: {isCrashing ? 'CRITICAL_FAILURE' : 'SYSTEM_IDLE'}
+            </div>
+
+            <button className="danger" onClick={() => setIsCrashing(true)}>
+                START_RECURSIVE_CRASH
             </button>
-            <p style={{ fontSize: '10px' }}>
-                Check console to see "BASIS CRITICAL | CIRCUIT BREAKER"
-            </p>
         </div>
     )
 }

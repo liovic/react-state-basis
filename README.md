@@ -52,7 +52,7 @@ const isLoggedIn = !!user;  // Computed, no second render
 The optional HUD shows your state basis matrix in real-time:
 
 <p align="center">
-  <img src="./assets/react-state-basis.gif" width="800" alt="React State Basis Demo" />
+  <img src="./assets/react-state-basis-demo.gif" width="800" alt="React State Basis Demo" />
 </p>
 
 ---
@@ -328,15 +328,15 @@ Location: `/example`
 
 **Observed impact:**
 
-* **Per state update overhead:** ~0.3ms (lightweight hook instrumentation)
-* **Analysis pass (every ~100ms / 5 ticks):** ~2–4ms in typical applications
-* **Frame budget impact:** <1% when idle, ~5–10% during active stress testing
-* **Render path safety:** Analysis runs asynchronously, outside of React’s render cycle
+* **Per update overhead:** < 0.05ms (O(1) Map-based tracking)
+* **Analysis pass:** ~1.0ms (Zero-copy pointer math)
+* **Frame budget impact:** ~2% during active 100-hook stress testing
+* **Latency (INP):** 80ms (v0.4.0) vs 464ms (v0.3.x legacy engine)
 
 > Results will vary by hardware, browser, and workload. Use the Stress Lab to reproduce and compare Basis ON vs OFF in your own environment.
 
 <p align="center"> 
-  <img src="./assets/performance-test.png" width="800" alt="shadcn Admin Audit" /> 
+  <img src="./assets/react-state-basis-stress.gif" width="800" alt="shadcn Admin Audit" /> 
 </p>
 
 

@@ -6,26 +6,36 @@ export const BooleanEntanglement = () => {
   const [hasData, setHasData] = useState(false)
 
   const runSimulation = () => {
-    let count = 0;
-    const interval = setInterval(() => {
-      setIsLoading(true); setIsSuccess(false); setHasData(false);
-      setTimeout(() => {
-        setIsLoading(false); setIsSuccess(true); setHasData(true);
-      }, 50);
-      count++;
-      if (count > 5) clearInterval(interval);
-    }, 150);
+    setIsLoading(true); setIsSuccess(false); setHasData(false);
+    setTimeout(() => {
+      setIsLoading(false); setIsSuccess(true); setHasData(true);
+    }, 100);
   }
 
   return (
-    <div style={{ padding: '15px', border: '1px solid #333', margin: '10px' }}>
-      <h4>2. Boolean Entanglement</h4>
-      <button onClick={runSimulation}>Trigger API Loop</button>
-      <p>Status: {isLoading ? "..." : "IDLE"}</p>
-
-      <div style={{ fontSize: '10px', color: '#666', marginTop: '5px' }}>
-        Internal State: {isSuccess ? "SUCCESS" : ""} {hasData ? " | HAS_DATA" : ""}
+    <div className="diagnostic-card">
+      <div className="card-tag">02 // COLLINEAR_ANALYSIS</div>
+      <h2>Boolean Entanglement</h2>
+      <div style={{ display: 'flex', gap: '8px', margin: '16px 0' }}>
+        {[
+          { label: 'LOAD', active: isLoading, color: 'var(--cyan)' },
+          { label: 'SUCC', active: isSuccess, color: 'var(--green)' },
+          { label: 'DATA', active: hasData, color: 'var(--green)' }
+        ].map(bit => (
+          <div key={bit.label} style={{
+            flex: 1, padding: '12px 4px', borderRadius: '4px',
+            border: '1px solid',
+            borderColor: bit.active ? bit.color : 'var(--zinc-200)',
+            background: bit.active ? `${bit.color}08` : 'white',
+            textAlign: 'center'
+          }}>
+            <div style={{ fontSize: '9px', fontWeight: 700, color: bit.active ? bit.color : 'var(--zinc-400)' }} className="mono">{bit.label}</div>
+            <div style={{ fontSize: '18px', fontWeight: 600, color: bit.active ? bit.color : 'var(--zinc-200)' }} className="mono">{bit.active ? '1' : '0'}</div>
+          </div>
+        ))}
       </div>
+      <div className="status-label">CONFIDENCE_SCORE: <span style={{ color: 'var(--zinc-800)' }}>0.94</span></div>
+      <button className="primary" onClick={runSimulation}>TRIGGER_API_SEQUENCE</button>
     </div>
   )
 }
