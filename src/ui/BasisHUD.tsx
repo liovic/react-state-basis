@@ -79,11 +79,17 @@ function renderMatrix(ctx: CanvasRenderingContext2D, entries: [string, number[]]
   entries.forEach(([label, vector], rowIndex) => {
     const y = rowIndex * DIM.ROW_HEIGHT + DIM.PADDING;
     const stateName = label.split(' -> ')[1] || label;
+
+    // v0.4.1 Volatility Logic
+    const density = vector.reduce((acc, bit) => acc + bit, 0);
+    const isVolatile = density > 25;
     const isRedundant = redundantLabels.has(label);
 
     vector.forEach((bit, colIndex) => {
       const x = colIndex * DIM.COL_WIDTH + DIM.PADDING;
-      ctx.fillStyle = bit === 1 ? (isRedundant ? THEME.error : THEME.success) : THEME.grid;
+      ctx.fillStyle = bit === 1
+        ? (isRedundant ? THEME.error : THEME.success)
+        : THEME.grid;
 
       const w = DIM.COL_WIDTH - 1.5;
       const h = DIM.ROW_HEIGHT - 4;
@@ -98,19 +104,27 @@ function renderMatrix(ctx: CanvasRenderingContext2D, entries: [string, number[]]
     });
 
     const textX = (DIM.WINDOW_SIZE * DIM.COL_WIDTH) + DIM.PADDING + 10;
-    ctx.fillStyle = isRedundant ? THEME.error : THEME.text;
-    ctx.font = `${isRedundant ? '600' : '400'} 11px Inter, Menlo, monospace`;
-    
-    const cleanName = isRedundant ? `! ${stateName}` : stateName;
+
+    ctx.fillStyle = isRedundant
+      ? THEME.error
+      : (isVolatile ? THEME.success : THEME.text);
+
+    ctx.font = `${(isRedundant || isVolatile) ? '600' : '400'} 11px Inter, Menlo, monospace`;
+
+    let prefix = "";
+    if (isRedundant) prefix = "! ";
+    else if (isVolatile) prefix = "~ ";
+
+    const cleanName = prefix + stateName;
     const truncatedName = cleanName.length > 18 ? cleanName.substring(0, 16) + '..' : cleanName;
     ctx.fillText(truncatedName, textX, y + 9);
   });
 }
 
 const HUDHeader: React.FC<{ isExpanded: boolean }> = ({ isExpanded }) => (
-  <div style={{ 
-    padding: '10px 14px', 
-    backgroundColor: isExpanded ? THEME.header : 'transparent', 
+  <div style={{
+    padding: '10px 14px',
+    backgroundColor: isExpanded ? THEME.header : 'transparent',
     color: isExpanded ? 'white' : THEME.header,
     fontWeight: 600, fontSize: '11px', letterSpacing: '0.05em',
     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -122,7 +136,7 @@ const HUDHeader: React.FC<{ isExpanded: boolean }> = ({ isExpanded }) => (
 );
 
 const HUDFooter: React.FC = () => (
-  <div style={{ 
+  <div style={{
     marginTop: '12px', paddingTop: '8px', borderTop: `1px solid ${THEME.grid}`,
     color: THEME.textDim, fontSize: '9px', display: 'flex', justifyContent: 'space-between'
   }}>
