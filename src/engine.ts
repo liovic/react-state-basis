@@ -7,7 +7,8 @@ import {
   SIMILARITY_THRESHOLD,
   LOOP_THRESHOLD,
   LOOP_WINDOW_MS,
-  ANALYSIS_INTERVAL
+  ANALYSIS_INTERVAL,
+  VOLATILITY_THRESHOLD
 } from './core/constants';
 
 interface BasisEngineState {
@@ -74,18 +75,23 @@ const getTemporalSimilarity = (vecA: number[], vecB: number[]) => {
   return { sync, bFollowsA, aFollowsB };
 };
 
+const getPulseDensity = (vec: number[]): number => {
+  let sum = 0;
+  for (let i = 0; i < vec.length; i++) sum += vec[i];
+  return sum;
+};
+
 const analyzeBasis = () => {
   if (!instance.config.debug) {
     instance.redundantLabels.clear();
     return;
   }
 
-  // FILTER: Only look at variables that have updated at least twice.
-  const entries = Array.from(instance.history.entries()).filter(([_, vec]) => {
-    let sum = 0;
-    for (let i = 0; i < vec.length; i++) sum += vec[i];
-    return sum >= 2;
-  });
+  const entries = Array.from(instance.history.entries()).map(([label, vec]) => ({
+    label,
+    vec,
+    density: getPulseDensity(vec)
+  })).filter(e => e.density >= 2);
 
   if (entries.length < 2) return;
 
@@ -93,24 +99,31 @@ const analyzeBasis = () => {
 
   for (let i = 0; i < entries.length; i++) {
     for (let j = i + 1; j < entries.length; j++) {
-      const [labelA, vecA] = entries[i];
-      const [labelB, vecB] = entries[j];
+      const entryA = entries[i];
+      const entryB = entries[j];
 
-      const { sync, bFollowsA, aFollowsB } = getTemporalSimilarity(vecA, vecB);
-
+      const { sync, bFollowsA, aFollowsB } = getTemporalSimilarity(entryA.vec, entryB.vec);
       const maxSim = Math.max(sync, bFollowsA, aFollowsB);
 
       if (maxSim > SIMILARITY_THRESHOLD) {
+        const isBothVolatile = entryA.density > VOLATILITY_THRESHOLD && entryB.density > VOLATILITY_THRESHOLD;
+
         if (sync === maxSim) {
-          newRedundant.add(labelA);
-          newRedundant.add(labelB);
-          UI.displayRedundancyAlert(labelA, labelB, sync);
+          // HEURISTIC: If both are high-frequency streams (e.g. 60fps), 
+          // we suppress "Redundancy" alerts because the relationship is likely intentional/hardware-driven.
+          if (!isBothVolatile) {
+            newRedundant.add(entryA.label);
+            newRedundant.add(entryB.label);
+            UI.displayRedundancyAlert(entryA.label, entryB.label, sync);
+          }
         }
         else if (bFollowsA === maxSim) {
-          UI.displayCausalHint(labelB, labelA, 'math');
+          // We NEVER suppress Causal Hints. If a high-density stream 
+          // triggers another variable, that is ALWAYS a performance leak.
+          UI.displayCausalHint(entryB.label, entryA.label, 'math');
         }
         else if (aFollowsB === maxSim) {
-          UI.displayCausalHint(labelA, labelB, 'math');
+          UI.displayCausalHint(entryA.label, entryB.label, 'math');
         }
       }
     }
@@ -127,9 +140,14 @@ export const recordUpdate = (label: string): boolean => {
 
   // CIRCUIT BREAKER
   instance.updateLog.push({ label, ts: now });
-  instance.updateLog = instance.updateLog.filter(e => now - e.ts < LOOP_WINDOW_MS);
 
-  if (instance.updateLog.filter(e => e.label === label).length > LOOP_THRESHOLD) {
+  if (instance.updateLog.length > 200) {
+    instance.updateLog = instance.updateLog.filter(e => now - e.ts < LOOP_WINDOW_MS);
+  }
+
+  const updateCount = instance.updateLog.filter(e => e.label === label).length;
+
+  if (updateCount > LOOP_THRESHOLD) {
     UI.displayInfiniteLoop(label);
     return false;
   }

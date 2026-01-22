@@ -5,13 +5,15 @@
 <div align="center">
 
 # 📐 react-state-basis
-### Runtime state profiler for React
+### Runtime Architectural Auditor & State Profiler for React
 
 [![npm version](https://img.shields.io/npm/v/react-state-basis.svg?style=flat-square)](https://www.npmjs.com/package/react-state-basis)
 [![GitHub stars](https://img.shields.io/github/stars/liovic/react-state-basis.svg?style=flat-square)](https://github.com/liovic/react-state-basis/stargazers)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
 
-**Catches redundant state and update chains using temporal cross-correlation.**
+**Basis tracks the rhythm of state updates, not the data. It identifies redundant patterns and sync-leaks that standard tools miss.**
+
+> Stop relying on architectural intuition. Start measuring architectural debt.
 
 </div>
 
@@ -253,25 +255,6 @@ const isLoggedIn = !!user; // Derived, no effect needed
 
 ---
 
-## Upgrading from v0.3.x
-
-### Breaking Changes
-None! v0.4.0 is a drop-in replacement.
-
-### What's Different
-- **Better Detection:** Temporal analysis reduces false positives by distinguishing redundancy from causality
-- **New Alert Type:** "DETECTED SYNC LEAK" identifies effect-driven update chains with directional insight
-- **Console Throttling:** Same pair won't spam console (5-second cooldown between identical alerts)
-- **Idle Filtering:** Variables that haven't updated are excluded from analysis
-
-### Action Required
-None. Just update the package and restart your dev server.
-```bash
-npm update react-state-basis
-```
-
----
-
 ## Production Safety
 
 In production builds, the entire tool is replaced with zero-op shims. **Zero runtime overhead. Zero bundle size increase.**
@@ -293,7 +276,7 @@ In production builds, the entire tool is replaced with zero-op shims. **Zero run
 Add `// @basis-ignore` at the top of a file to disable instrumentation:
 ```tsx
 // @basis-ignore
-// This file uses high-frequency animations and intentional state synchronization
+// This file uses third-party library wrappers or hardware-bound synchronization that Basis shouldn't audit.
 ```
 
 **Good candidates for skipping:**
@@ -348,7 +331,7 @@ Location: `/example`
 
 ---
 
-## Limitations (v0.4.0)
+## Limitations (v0.4.x)
 
 **What works well:**
 - ✅ Detecting synchronous redundant state
@@ -362,7 +345,7 @@ Location: `/example`
 - ⚠️ **Complex multi-way dependencies:** Three or more interconnected states might not show full relationship graph
 - ⚠️ **Requires judgment:** Tool points out patterns worth investigating - you decide if they're issues
 
-**False positives can happen.** Always verify before refactoring.
+**Heuristic interpretation requires context. Always verify architectural intent before refactoring.**.
 
 ---
 
@@ -370,9 +353,8 @@ Location: `/example`
 
 ### v0.4.x
 - [x] **v0.4.0**: Temporal Cross-Correlation Engine (Lead-Lag Analysis)
-- [ ] v0.4.1: Density Filtering (Eliminate false positives from animations/sliders)
+- [x] **v0.4.1:** Density Filtering (Eliminate false positives from animations/sliders)
 - [ ] v0.4.2: Ring Buffer (Zero-jank memory management for 500+ hooks)
-- [ ] v0.4.3: Custom Sensitivity (#23) 
 
 ### v0.5.0 (Planned)
 - [ ] Zustand & Redux middleware integration
@@ -383,26 +365,6 @@ Location: `/example`
 - [ ] Domain isolation analysis (detect feature boundaries)
 - [ ] Export audit reports for team reviews
 - [ ] CI integration for architectural regressions
-
----
-
-## Troubleshooting
-
-**"I'm not seeing any alerts"**
-1. Verify `debug={true}` is set in `<BasisProvider>`
-2. Check that the Babel plugin is loaded (restart dev server after config changes)
-3. Create a test pattern (see "Verify It's Working" section)
-4. Open browser console and look for `Basis Auditor | Structural Relationship Check`
-
-**"Too many alerts"**
-- Use `// @basis-ignore` for animation-heavy files
-- Check if your app has intentional state synchronization patterns
-- Consider if alerts are revealing actual architectural issues
-
-**"Alert says 'sync leak' but I need that effect"**
-- Some effects are necessary (e.g., syncing to localStorage)
-- Basis flags patterns, not bugs - use your judgment
-- If it's intentional, add a comment explaining why
 
 ---
 

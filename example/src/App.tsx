@@ -7,6 +7,7 @@ import { BooleanEntanglement } from './BooleanEntanglement'
 import { InfiniteCrashLab } from './InfiniteCrashLab'
 import { StressLab } from './StressLab'
 import './App.css'
+import AnimationTests from './AnimationTests'
 
 function GlobalNeuralController() {
   const { login, logout } = useContext(AuthContext)
@@ -90,8 +91,7 @@ export default function App() {
               <BooleanEntanglement />
               <InfiniteCrashLab />
               <StressLab />
-
-
+              <AnimationTests />
             </div>
 
             <div style={{ marginTop: 'auto', padding: '20px', textAlign: 'center', opacity: 0.2, fontSize: '8px' }} className="mono">
