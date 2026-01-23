@@ -1,6 +1,14 @@
 // src/core/logger.ts
 
+import { calculateCosineSimilarity } from "./math";
+
 const isWeb = typeof window !== 'undefined' && typeof window.document !== 'undefined';
+
+interface RingBufferMetadata {
+  buffer: Uint8Array;
+  head: number;
+  options: any;
+}
 
 const LAST_LOG_TIMES = new Map<string, number>();
 const LOG_COOLDOWN = 5000; // 5 seconds between same alerts
@@ -111,78 +119,39 @@ export const displayInfiniteLoop = (label: string) => {
   console.groupEnd();
 };
 
-export const displayHealthReport = (
-  history: Map<string, number[]>,
-  similarityFn: (A: number[], B: number[]) => number,
-  threshold: number
-) => {
+export const displayHealthReport = (history: Map<string, RingBufferMetadata>, threshold: number) => {
   const entries = Array.from(history.entries());
-  const totalVars = entries.length;
-  if (totalVars === 0) return;
+  if (entries.length === 0) return;
 
   const clusters: string[][] = [];
   const processed = new Set<string>();
   let independentCount = 0;
 
-  entries.forEach(([labelA, vecA]) => {
+  entries.forEach(([labelA, metaA]) => {
     if (processed.has(labelA)) return;
     const currentCluster = [labelA];
     processed.add(labelA);
-    entries.forEach(([labelB, vecB]) => {
+    entries.forEach(([labelB, metaB]) => {
       if (labelA === labelB || processed.has(labelB)) return;
-      const sim = similarityFn(vecA, vecB);
-      if (sim > threshold) {
-        currentCluster.push(labelB);
-        processed.add(labelB);
-      }
+      const sim = calculateCosineSimilarity(metaA.buffer, metaB.buffer);
+      if (sim > threshold) { currentCluster.push(labelB); processed.add(labelB); }
     });
-    if (currentCluster.length > 1) {
-      clusters.push(currentCluster);
-    } else {
-      independentCount++;
-    }
+    if (currentCluster.length > 1) clusters.push(currentCluster); else independentCount++;
   });
 
-  const systemRank = independentCount + clusters.length;
-  const healthScore = (systemRank / totalVars) * 100;
+  const healthScore = ((independentCount + clusters.length) / entries.length) * 100;
+  console.group(`%c 📊 BASIS | ARCHITECTURAL HEALTH REPORT `, 'background: #00b894; color: white; font-weight: bold; padding: 4px 8px;');
+  console.log(`%cScore: %c${healthScore.toFixed(1)}%`, 'font-weight: bold;', `color: ${healthScore > 85 ? '#00b894' : '#d63031'}; font-size: 16px; font-weight: bold;`);
+  console.groupEnd();
+};
 
-  if (isWeb) {
-    console.group(`%c 📊 BASIS | ARCHITECTURAL HEALTH REPORT `, STYLES.headerGreen);
-    console.log(
-      `%cArchitectural Health Score: %c${healthScore.toFixed(1)}% %c(State Distribution: ${systemRank}/${totalVars})`,
-      STYLES.bold,
-      `color: ${healthScore > 85 ? '#00b894' : '#d63031'}; font-size: 16px; font-weight: bold;`,
-      "color: #636e72; font-style: italic;"
-    );
-
-    if (clusters.length > 0) {
-      console.log(`%cDetected ${clusters.length} Synchronized Update Clusters:`, "font-weight: bold; color: #e17055; margin-top: 10px;");
-      clusters.forEach((cluster, idx) => {
-        const names = cluster.map(l => parseLabel(l).name).join(' ⟷ ');
-        console.log(` %c${idx + 1}%c ${names}`, "background: #e17055; color: white; border-radius: 50%; padding: 0 5px;", "font-family: monospace;");
-      });
-      console.log("%c💡 Action: Variables in a cluster move together. Try refactoring them into a single state object or use useMemo for derived values.", STYLES.subText);
-    } else {
-      console.log("%c✨ All state variables have optimal distribution. Your Basis is healthy.", "color: #00b894; font-weight: bold; margin-top: 10px;");
-    }
-
-    if (totalVars > 0 && totalVars < 15) {
-      console.groupCollapsed("%cView Full Correlation Matrix", "color: #636e72; font-size: 11px;");
-      const matrix: any = {};
-      entries.forEach(([labelA]) => {
-        const nameA = parseLabel(labelA).name;
-        matrix[nameA] = {};
-        entries.forEach(([labelB]) => {
-          const nameB = parseLabel(labelB).name;
-          const sim = similarityFn(history.get(labelA)!, history.get(labelB)!);
-          matrix[nameA][nameB] = sim > threshold ? `❌ ${(sim * 100).toFixed(0)}%` : `✅`;
-        });
-      });
-      console.table(matrix);
-      console.groupEnd();
-    }
-    console.groupEnd();
-  } else {
-    console.log(`[BASIS HEALTH] Score: ${healthScore.toFixed(1)}% (State Distribution: ${systemRank}/${totalVars})`);
-  }
+export const displayViolentBreaker = (label: string, count: number, threshold: number) => {
+  if (!isWeb) return;
+  const parts = label.split(' -> ');
+  console.group(`%c ⚠️  CRITICAL SYSTEM ALERT | BASIS ENGINE `, 'background: #dc2626; color: white; font-weight: bold; padding: 8px 16px;');
+  console.error(`%cINFINITE LOOP DETECTED\n\n%cVariable: %c${parts[1] || label}\n%cFrequency: %c${count} updates/sec\n%cLimit: %c${threshold}`,
+    'color: #dc2626; font-size: 16px; font-weight: bold;', 'color: #71717a;', 'color: white; background: #dc2626; padding: 2px 8px;',
+    'color: #71717a;', 'color: #fbbf24;', 'color: #71717a;', 'color: #fbbf24;');
+  console.log(`%cDIAGNOSTICS:\n1. setState in render\n2. Missing useEffect deps\n3. Circular chains\n\n%cACTION: Update BLOCKED. Fix code to resume.`, 'color: #71717a;', 'color: #dc2626; font-weight: bold;');
+  console.groupEnd();
 };

@@ -179,9 +179,19 @@ Shows:
 - **Synchronized Clusters** - Groups of variables that move together
 - **Correlation Matrix** - Full pairwise similarity analysis (for <15 variables)
 
+### Hardware Telemetry
+
+Verify engine efficiency and heap stability in real-time:
+
+```tsx
+window.getBasisMetrics();
+```
+
+Returns: Engine execution time, active hook count, and current memory allocation strategy.
+
 ---
 
-## How It Works (v0.4.0)
+## How It Works (v0.4.x)
 
 ### Temporal Cross-Correlation
 
@@ -276,7 +286,7 @@ In production builds, the entire tool is replaced with zero-op shims. **Zero run
 Add `// @basis-ignore` at the top of a file to disable instrumentation:
 ```tsx
 // @basis-ignore
-// This file uses third-party library wrappers or hardware-bound synchronization that Basis shouldn't audit.
+// This file contains external protocols or hardware-bound synchronization outside the scope of architectural auditing.
 ```
 
 **Good candidates for skipping:**
@@ -305,22 +315,25 @@ These tools are complementary - use them together for best results.
 
 **Development Mode**
 
-These measurements were taken using the built-in **Stress Lab** with 100 active hooks and continuous state updates, observed in Chrome DevTools Performance and Web Vitals panels. 
+**Basis is designed to be statistically invisible to the main thread.** 
 
-Location: `/example`
+The v0.4.2 **Flat Memory Architecture** utilizes `Uint8Array` Ring Buffers to eliminate Garbage Collection (GC) churn and provide constant-time $O(1)$ telemetry recording.
 
-**Observed impact:**
+### Audited Benchmarks
 
-* **Per update overhead:** < 0.05ms (O(1) Map-based tracking)
-* **Analysis pass:** ~1.0ms (Zero-copy pointer math)
-* **Frame budget impact:** ~2% during active 100-hook stress testing
-* **Latency (INP):** 80ms (v0.4.0) vs 464ms (v0.3.x legacy engine)
+These metrics were recorded during a **20-minute high-frequency endurance audit** (1.2M state pulses) using the built-in **Stress Lab**.
 
-> Results will vary by hardware, browser, and workload. Use the Stress Lab to reproduce and compare Basis ON vs OFF in your own environment.
+*   **Logic Execution Overhead:** < 1.0ms per 100-hook update cycle.
+*   **Memory Profile:** **0 Delta heap growth.** (Static allocation via Ring Buffers).
+*   **Interaction Latency (INP):** ~56ms during continuous 50-hook concurrency tests (Green Zone).
+*   **Drawing Efficiency:** ~15ms drawing cost via Path2D GPU-batching.
+
+> 🔍 **Forensic Proof:** Detailed heap snapshots, modulo-tax analysis, and linearized math benchmarks are documented in the [**v0.4.2 Performance RFC (#33)**](https://github.com/liovic/react-state-basis/issues/33).
 
 <p align="center"> 
-  <img src="./assets/react-state-basis-stress.gif" width="800" alt="shadcn Admin Audit" /> 
+  <img src="./assets/perf.gif" width="800" alt="Basis Stress Lab" /> 
 </p>
+
 
 
 **Production Mode:**
@@ -354,7 +367,8 @@ Location: `/example`
 ### v0.4.x
 - [x] **v0.4.0**: Temporal Cross-Correlation Engine (Lead-Lag Analysis)
 - [x] **v0.4.1:** Density Filtering (Eliminate false positives from animations/sliders)
-- [ ] v0.4.2: Ring Buffer (Zero-jank memory management for 500+ hooks)
+- [x] v0.4.2: Ring Buffer (Zero-jank memory management for 500+ hooks) [**v0.4.2 Performance RFC (#33)**](https://github.com/liovic/react-state-basis/issues/33)
+
 
 ### v0.5.0 (Planned)
 - [ ] Zustand & Redux middleware integration

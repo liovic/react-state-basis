@@ -8,5 +8,5 @@ export {
 } from './hooks';
 
 export { BasisProvider, useBasisConfig } from './context';
-export { configureBasis, printBasisHealthReport } from './engine';
+export { configureBasis, printBasisHealthReport, getBasisMetrics } from './engine';
 export { basis } from './vite-plugin';
