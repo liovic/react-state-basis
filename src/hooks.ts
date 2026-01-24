@@ -1,4 +1,5 @@
 // src/hooks.ts
+
 import * as React from 'react';
 import {
   useState as reactUseState,
@@ -29,12 +30,11 @@ type GetReducerAction<R extends React.Reducer<any, any>> = R extends React.Reduc
 
 export function useState<S>(initialState: S | (() => S), label?: string): [S, React.Dispatch<React.SetStateAction<S>>] {
   const [val, setVal] = reactUseState(initialState);
-
   const effectiveLabel = reactUseRef(label || getFallbackLabel('state')).current;
 
   reactUseEffect(() => {
     registerVariable(effectiveLabel);
-    return () => unregisterVariable(effectiveLabel);
+    return () => { unregisterVariable(effectiveLabel); };
   }, [effectiveLabel]);
 
   const setter = reactUseCallback((newValue: any) => {
@@ -70,7 +70,7 @@ export function useReducer<R extends React.Reducer<any, any>, I>(
 
   reactUseEffect(() => {
     registerVariable(effectiveLabel);
-    return () => unregisterVariable(effectiveLabel);
+    return () => { unregisterVariable(effectiveLabel); };
   }, [effectiveLabel]);
 
   const basisDispatch = reactUseCallback((action: any) => {
@@ -149,7 +149,7 @@ export function useOptimistic<S, P>(
 
   reactUseEffect(() => {
     registerVariable(effectiveLabel);
-    return () => unregisterVariable(effectiveLabel);
+    return () => { unregisterVariable(effectiveLabel); };
   }, [effectiveLabel]);
 
   const [state, reactAddOptimistic] = (React as any).useOptimistic(passthrough, reducer) as [S, (p: P) => void];
@@ -182,7 +182,7 @@ export function useActionState<State, Payload>(
 
   reactUseEffect(() => {
     registerVariable(effectiveLabel);
-    return () => unregisterVariable(effectiveLabel);
+    return () => { unregisterVariable(effectiveLabel); };
   }, [effectiveLabel]);
 
   const basisDispatch = reactUseCallback((payload: Payload) => {

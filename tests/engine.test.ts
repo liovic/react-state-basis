@@ -1,61 +1,56 @@
 // tests/engine.test.ts
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { __testEngine__ } from '../src/engine';
+import { __testEngine__, history } from '../src/engine';
 import * as UI from '../src/core/logger';
+import { WINDOW_SIZE } from '../src/core/constants';
 
-const {
-    registerVariable,
-    recordUpdate,
-    history,
-    configureBasis,
-    instance
-} = __testEngine__;
+const { registerVariable, recordUpdate, configureBasis, instance } = __testEngine__;
 
-describe('State Engine Core', () => {
+describe('State Engine Core (v0.4.2)', () => {
     beforeEach(() => {
         configureBasis({ debug: true });
-        
         history.clear();
-        instance.updateLog = [];
         instance.tick = 0;
         instance.isBatching = false;
-        
+        instance.loopCounters.clear();
+        instance.pausedVariables.clear();
         vi.useFakeTimers();
     });
 
-    it('Activity Guard: remains silent if variables update only once', () => {
+    it('Activity Guard: remains silent if variables update only once', async () => {
         const spy = vi.spyOn(UI, 'displayRedundancyAlert');
         registerVariable('v1');
         registerVariable('v2');
-        
         recordUpdate('v1');
         recordUpdate('v2');
-        
-        vi.advanceTimersByTime(25); 
-        
+
+        await vi.runAllTimersAsync();
         expect(spy).not.toHaveBeenCalled();
-        spy.mockRestore();
     });
 
-    it('prevents infinite loops (v0.4.0 Circuit Breaker)', () => {
+    it('prevents infinite loops (v0.4.2 Hard Breaker)', () => {
+        vi.spyOn(UI, 'displayViolentBreaker').mockImplementation(() => { });
         registerVariable('loop');
-        
-        for (let i = 0; i < 300; i++) {
-            recordUpdate('loop');
+
+        for (let i = 0; i < 150; i++) {
+            expect(recordUpdate('loop')).toBe(true);
         }
-        
+
+        expect(recordUpdate('loop')).toBe(false);
+
         expect(recordUpdate('loop')).toBe(false);
     });
 
-    it('batches multiple updates into a single temporal tick', () => {
+    it('batches multiple updates into a single temporal tick', async () => {
         registerVariable('a');
-        
         recordUpdate('a');
-        recordUpdate('a'); 
-        
-        vi.advanceTimersByTime(25); 
-        
-        expect(history.get('a')![49]).toBe(1);
+        recordUpdate('a');
+
+        await vi.runAllTimersAsync();
+
+        const meta = history.get('a')!;
+        const lastIdx = (meta.head - 1 + WINDOW_SIZE) % WINDOW_SIZE;
+        expect(meta.buffer[lastIdx]).toBe(1);
     });
 });

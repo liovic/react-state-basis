@@ -12,8 +12,11 @@ export const BasisHUD: React.FC = () => {
     if (!isExpanded) return;
 
     let animationFrame: number;
+    let isMounted = true;
 
     const draw = () => {
+      if (!isMounted) return;
+
       const canvas = canvasRef.current;
       if (!canvas) return;
       const ctx = canvas.getContext('2d');
@@ -22,8 +25,8 @@ export const BasisHUD: React.FC = () => {
       const entries = Array.from(history.entries());
       const dpr = window.devicePixelRatio || 1;
 
-      const rawWidth = (DIM.WINDOW_SIZE * DIM.COL_WIDTH) + DIM.LABEL_WIDTH + (DIM.PADDING * 2);
-      const rawHeight = Math.max(entries.length * DIM.ROW_HEIGHT + (DIM.PADDING * 2), 60);
+      const rawWidth = DIM.WINDOW_SIZE * DIM.COL_WIDTH + DIM.LABEL_WIDTH + DIM.PADDING * 2;
+      const rawHeight = Math.max(entries.length * DIM.ROW_HEIGHT + DIM.PADDING * 2, 60);
 
       updateCanvasSize(canvas, rawWidth, rawHeight, dpr);
 
@@ -42,7 +45,11 @@ export const BasisHUD: React.FC = () => {
     };
 
     draw();
-    return () => cancelAnimationFrame(animationFrame);
+
+    return () => {
+      isMounted = false;
+      cancelAnimationFrame(animationFrame);
+    };
   }, [isExpanded]);
 
   return (
@@ -75,72 +82,97 @@ function renderEmptyState(ctx: CanvasRenderingContext2D) {
   ctx.fillText('Waiting for state transitions...', DIM.PADDING, 30);
 }
 
-function renderMatrix(ctx: CanvasRenderingContext2D, entries: [string, number[]][]) {
-  entries.forEach(([label, vector], rowIndex) => {
-    const y = rowIndex * DIM.ROW_HEIGHT + DIM.PADDING;
-    const stateName = label.split(' -> ')[1] || label;
+function renderMatrix(ctx: CanvasRenderingContext2D, entries: [string, any][]) {
+  const L = DIM.WINDOW_SIZE;
+  const colW = DIM.COL_WIDTH;
+  const rowH = DIM.ROW_HEIGHT;
+  const pad = DIM.PADDING;
+  const cellW = colW - 1.5;
+  const cellH = rowH - 4;
 
-    // v0.4.1 Volatility Logic
-    const density = vector.reduce((acc, bit) => acc + bit, 0);
-    const isVolatile = density > 25;
+  // 1. BATCH THE PATHS
+  const gridPath = new Path2D();
+  const successPath = new Path2D();
+  const errorPath = new Path2D();
+
+  ctx.font = "11px Inter, Menlo, monospace";
+
+  let rowIndex = 0;
+  for (const [label, meta] of entries) {
+    const y = rowIndex * rowH + pad;
     const isRedundant = redundantLabels.has(label);
+    const { buffer, head } = meta;
 
-    vector.forEach((bit, colIndex) => {
-      const x = colIndex * DIM.COL_WIDTH + DIM.PADDING;
-      ctx.fillStyle = bit === 1
-        ? (isRedundant ? THEME.error : THEME.success)
-        : THEME.grid;
+    let uiPos = 0;
 
-      const w = DIM.COL_WIDTH - 1.5;
-      const h = DIM.ROW_HEIGHT - 4;
-
-      if (ctx.roundRect) {
-        ctx.beginPath();
-        ctx.roundRect(x, y, w, h, DIM.RADIUS);
-        ctx.fill();
+    const addToPath = (val: number, xIdx: number) => {
+      const x = xIdx * colW + pad;
+      if (val === 1) {
+        (isRedundant ? errorPath : successPath).rect(x, y, cellW, cellH);
       } else {
-        ctx.fillRect(x, y, w, h);
+        gridPath.rect(x, y, cellW, cellH);
       }
-    });
+    };
 
-    const textX = (DIM.WINDOW_SIZE * DIM.COL_WIDTH) + DIM.PADDING + 10;
+    // Part 1: Head to End (Old data)
+    for (let i = head; i < L; i++) addToPath(buffer[i], uiPos++);
+    // Part 2: Start to Head (New data)
+    for (let i = 0; i < head; i++) addToPath(buffer[i], uiPos++);
 
-    ctx.fillStyle = isRedundant
-      ? THEME.error
-      : (isVolatile ? THEME.success : THEME.text);
+    // 2. LABELS
+    const stateName = label.split(' -> ')[1] || label;
+    const textX = (L * colW) + pad + 10;
 
-    ctx.font = `${(isRedundant || isVolatile) ? '600' : '400'} 11px Inter, Menlo, monospace`;
+    // We only recalculate density here because it's for UI only
+    let density = 0;
+    for (let i = 0; i < L; i++) density += buffer[i];
+    const isVolatile = density > 25;
 
-    let prefix = "";
-    if (isRedundant) prefix = "! ";
-    else if (isVolatile) prefix = "~ ";
+    ctx.fillStyle = isRedundant ? THEME.error : (isVolatile ? THEME.success : THEME.text);
+    ctx.fillText((isRedundant ? "! " : isVolatile ? "~ " : "") + stateName, textX, y + 9);
 
-    const cleanName = prefix + stateName;
-    const truncatedName = cleanName.length > 18 ? cleanName.substring(0, 16) + '..' : cleanName;
-    ctx.fillText(truncatedName, textX, y + 9);
-  });
+    rowIndex++;
+  }
+
+  // 3. EXECUTE ONLY 3 DRAWS
+  ctx.fillStyle = THEME.grid; ctx.fill(gridPath);
+  ctx.fillStyle = THEME.success; ctx.fill(successPath);
+  ctx.fillStyle = THEME.error; ctx.fill(errorPath);
 }
 
 const HUDHeader: React.FC<{ isExpanded: boolean }> = ({ isExpanded }) => (
-  <div style={{
-    padding: '10px 14px',
-    backgroundColor: isExpanded ? THEME.header : 'transparent',
-    color: isExpanded ? 'white' : THEME.header,
-    fontWeight: 600, fontSize: '11px', letterSpacing: '0.05em',
-    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-    transition: 'background 0.3s'
-  }}>
+  <div
+    style={{
+      padding: '10px 14px',
+      backgroundColor: isExpanded ? THEME.header : 'transparent',
+      color: isExpanded ? 'white' : THEME.header,
+      fontWeight: 600,
+      fontSize: '11px',
+      letterSpacing: '0.05em',
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      transition: 'background 0.3s',
+    }}
+  >
     <span>{isExpanded ? 'STATE BASIS MATRIX' : '📐 BASIS ACTIVE'}</span>
-    {isExpanded && <span style={{ opacity: 0.8, fontSize: '9px' }}>R50</span>}
+    {isExpanded && <span style={{ opacity: 0.8, fontSize: '9px' }}>v0.4.2</span>}
   </div>
 );
 
 const HUDFooter: React.FC = () => (
-  <div style={{
-    marginTop: '12px', paddingTop: '8px', borderTop: `1px solid ${THEME.grid}`,
-    color: THEME.textDim, fontSize: '9px', display: 'flex', justifyContent: 'space-between'
-  }}>
-    <span>LINEAR DEPENDENCY AUDIT</span>
-    <span>THRESHOLD 0.88</span>
+  <div
+    style={{
+      marginTop: '12px',
+      paddingTop: '8px',
+      borderTop: `1px solid ${THEME.grid}`,
+      color: THEME.textDim,
+      fontSize: '9px',
+      display: 'flex',
+      justifyContent: 'space-between',
+    }}
+  >
+    <span>RING BUFFER ENGINE</span>
+    <span>ZERO ALLOC</span>
   </div>
 );
