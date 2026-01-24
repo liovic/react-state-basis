@@ -1,9 +1,17 @@
 // src/core/logger.ts
 
+import { calculateCosineSimilarity } from "./math";
+
 const isWeb = typeof window !== 'undefined' && typeof window.document !== 'undefined';
 
+interface RingBufferMetadata {
+  buffer: Uint8Array;
+  head: number;
+  options: any;
+}
+
 const LAST_LOG_TIMES = new Map<string, number>();
-const LOG_COOLDOWN = 5000; // 5 seconds between same alerts
+const LOG_COOLDOWN = 5000; // 5 seconds suppression between identical alerts
 
 const STYLES = {
   basis: "background: #6c5ce7; color: white; font-weight: bold; padding: 2px 6px; border-radius: 3px;",
@@ -13,9 +21,11 @@ const STYLES = {
   headerGreen: "background: #00b894; color: white; font-weight: bold; padding: 4px 8px; border-radius: 4px;",
   label: "background: #dfe6e9; color: #2d3436; padding: 0 4px; border-radius: 3px; font-family: monospace; font-weight: bold; border: 1px solid #b2bec3;",
   location: "color: #0984e3; font-family: monospace; font-weight: bold;",
-  codeBlock: "background: #1e1e1e; color: #9cdcfe; padding: 8px 12px; display: block; margin: 4px 0; border-left: 3px solid #00b894; font-family: monospace; line-height: 1.4; border-radius: 0 3px 3px 0;",
+  impact: "background: #f1f2f6; color: #2f3542; padding: 0 4px; border-radius: 3px; font-weight: bold;",
   subText: "color: #636e72; font-size: 11px;",
-  bold: "font-weight: bold;"
+  bold: "font-weight: bold;",
+  actionMemo: "color: #00b894; font-weight: bold; border: 1px solid #00b894; padding: 0 4px; border-radius: 3px;",
+  actionDelete: "color: #d63031; font-weight: bold; border: 1px solid #d63031; padding: 0 4px; border-radius: 3px;"
 };
 
 const parseLabel = (label: string) => {
@@ -30,6 +40,7 @@ const shouldLog = (key: string) => {
   if (now - last > LOG_COOLDOWN) {
     LAST_LOG_TIMES.set(key, now);
 
+    // Garbage collection for log times
     if (LAST_LOG_TIMES.size > 100) {
       const cutoff = now - 3600000; // 1 hour
       for (const [k, v] of LAST_LOG_TIMES.entries()) {
@@ -55,24 +66,18 @@ export const displayRedundancyAlert = (labelA: string, labelB: string, sim: numb
   const infoA = parseLabel(labelA);
   const infoB = parseLabel(labelB);
 
-  console.group(`%c 📐 BASIS | REDUNDANT PATTERN `, STYLES.headerRed);
+  console.group(`%c ♊ BASIS | TWIN STATE DETECTED `, STYLES.headerRed);
   console.log(`%c📍 Location: %c${infoA.file}`, STYLES.bold, STYLES.location);
 
   console.log(
-    `%cObservation:%c %c${infoA.name}%c and %c${infoB.name}%c move together.\n` +
-    `%cOne is likely a direct mirror of the other. Confidence: ${(sim * 100).toFixed(0)}%`,
-    STYLES.bold,
-    "",
-    STYLES.label,
-    "",
-    STYLES.label,
-    "",
-    STYLES.subText
+    `%cThe Rhythm:%c %c${infoA.name}%c and %c${infoB.name}%c are moving in perfect sync.\n` +
+    `%cThis indicates that one is a redundant shadow of the other. Confidence: ${(sim * 100).toFixed(0)}%`,
+    STYLES.bold, "", STYLES.label, "", STYLES.label, "", STYLES.subText
   );
 
   console.log(
-    `%cAction:%c Refactor %c${infoB.name}%c to useMemo.`,
-    "color: #00b894; font-weight: bold;", "", "color: #e84393; font-weight: bold;", ""
+    `%cRecommended Fix:%c Derive %c${infoB.name}%c from %c${infoA.name}%c during the render pass.`,
+    STYLES.bold, "", STYLES.actionMemo, "", STYLES.bold, ""
   );
   console.groupEnd();
 };
@@ -85,37 +90,61 @@ export const displayCausalHint = (targetLabel: string, sourceLabel: string, meth
   const source = parseLabel(sourceLabel);
 
   console.groupCollapsed(
-    `%c 💡 BASIS | ${method === 'math' ? 'DETECTED' : 'TRACKED'} SYNC LEAK `,
+    `%c ⚡ BASIS | DOUBLE RENDER CYCLE `,
     STYLES.headerBlue
   );
   console.log(`%c📍 Location: %c${target.file}`, STYLES.bold, STYLES.location);
   console.log(
-    `%cFlow:%c %c${source.name}%c ➔ Effect ➔ %c${target.name}%c`,
+    `%cThe Rhythm:%c %c${source.name}%c pulses, then %c${target.name}%c pulses one frame later.`,
     STYLES.bold, "", STYLES.label, "", STYLES.label, ""
   );
   console.log(
-    `%cContext:%c ${method === 'math'
-      ? 'The engine detected a consistent 20ms lag between these updates.'
-      : 'This was caught during React effect execution.'}\n` +
-    `%cResult:%c This creates a %cDouble Render Cycle%c.`,
-    STYLES.bold, "", STYLES.bold, "", "color: #d63031; font-weight: bold;", ""
+    `%cThe Impact:%c You are forcing %c2 render passes%c for a single logical change.`,
+    STYLES.bold, "", STYLES.impact, ""
+  );
+  console.log(
+    `%cRecommended Fix:%c Remove the useEffect. Calculate %c${target.name}%c as a derived value or projection.`,
+    STYLES.bold, "", STYLES.actionDelete, ""
   );
   console.groupEnd();
 };
 
-export const displayInfiniteLoop = (label: string) => {
+export const displayViolentBreaker = (label: string, count: number, threshold: number) => {
   if (!isWeb) return;
-  const info = parseLabel(label);
-  console.group(`%c 🛑 BASIS CRITICAL | CIRCUIT BREAKER `, STYLES.headerRed);
-  console.error(`Infinite oscillation on: %c${info.name}%c`, "color: white; background: #d63031; padding: 2px 4px;", "");
+  const parts = label.split(' -> ');
+
+  console.group(
+    `%c ⚠️  CRITICAL SYSTEM ALERT | BASIS ENGINE `,
+    'background: #dc2626; color: white; font-weight: bold; padding: 8px 16px; font-size: 14px;'
+  );
+  console.error(
+    `%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
+    'color: #dc2626; font-weight: bold;'
+  );
+  console.error(
+    `%cINFINITE LOOP DETECTED\n\n` +
+    `%cVariable: %c${parts[1] || label}\n` +
+    `%cUpdate Frequency: %c${count} updates/sec\n` +
+    `%cExpected Maximum: %c${threshold} updates\n\n` +
+    `%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
+    'color: #dc2626; font-size: 16px; font-weight: bold;',
+    'color: #71717a; font-weight: bold;', `color: white; background: #dc2626; padding: 2px 8px;`,
+    'color: #71717a; font-weight: bold;', `color: #fbbf24; font-weight: bold;`,
+    'color: #71717a; font-weight: bold;', `color: #fbbf24; font-weight: bold;`,
+    'color: #dc2626; font-weight: bold;'
+  );
+  console.log(
+    `%cDIAGNOSTICS:\n` +
+    `1. Check for setState inside the render body.\n` +
+    `2. Verify useEffect dependencies (missing or unstable refs).\n` +
+    `3. Look for circular chains (State A -> B -> A).\n\n` +
+    `%cSYSTEM ACTION: Update BLOCKED. Fix your code to resume monitoring.`,
+    'color: #71717a;', 'color: #dc2626; font-weight: bold;'
+  );
   console.groupEnd();
 };
 
-export const displayHealthReport = (
-  history: Map<string, number[]>,
-  similarityFn: (A: number[], B: number[]) => number,
-  threshold: number
-) => {
+export const displayHealthReport = (history: Map<string, RingBufferMetadata>, threshold: number) => {
   const entries = Array.from(history.entries());
   const totalVars = entries.length;
   if (totalVars === 0) return;
@@ -124,23 +153,20 @@ export const displayHealthReport = (
   const processed = new Set<string>();
   let independentCount = 0;
 
-  entries.forEach(([labelA, vecA]) => {
+  // Decompose subspaces
+  entries.forEach(([labelA, metaA]) => {
     if (processed.has(labelA)) return;
     const currentCluster = [labelA];
     processed.add(labelA);
-    entries.forEach(([labelB, vecB]) => {
+    entries.forEach(([labelB, metaB]) => {
       if (labelA === labelB || processed.has(labelB)) return;
-      const sim = similarityFn(vecA, vecB);
+      const sim = calculateCosineSimilarity(metaA.buffer, metaB.buffer);
       if (sim > threshold) {
         currentCluster.push(labelB);
         processed.add(labelB);
       }
     });
-    if (currentCluster.length > 1) {
-      clusters.push(currentCluster);
-    } else {
-      independentCount++;
-    }
+    if (currentCluster.length > 1) clusters.push(currentCluster); else independentCount++;
   });
 
   const systemRank = independentCount + clusters.length;
@@ -149,32 +175,32 @@ export const displayHealthReport = (
   if (isWeb) {
     console.group(`%c 📊 BASIS | ARCHITECTURAL HEALTH REPORT `, STYLES.headerGreen);
     console.log(
-      `%cArchitectural Health Score: %c${healthScore.toFixed(1)}% %c(State Distribution: ${systemRank}/${totalVars})`,
+      `%cSystem Efficiency: %c${healthScore.toFixed(1)}% %c(Basis Vectors: ${systemRank} / Total Hooks: ${totalVars})`,
       STYLES.bold,
       `color: ${healthScore > 85 ? '#00b894' : '#d63031'}; font-size: 16px; font-weight: bold;`,
       "color: #636e72; font-style: italic;"
     );
 
     if (clusters.length > 0) {
-      console.log(`%cDetected ${clusters.length} Synchronized Update Clusters:`, "font-weight: bold; color: #e17055; margin-top: 10px;");
+      console.log(`%cDetected ${clusters.length} Entangled Clusters:`, "font-weight: bold; color: #e17055; margin-top: 10px;");
       clusters.forEach((cluster, idx) => {
         const names = cluster.map(l => parseLabel(l).name).join(' ⟷ ');
         console.log(` %c${idx + 1}%c ${names}`, "background: #e17055; color: white; border-radius: 50%; padding: 0 5px;", "font-family: monospace;");
       });
-      console.log("%c💡 Action: Variables in a cluster move together. Try refactoring them into a single state object or use useMemo for derived values.", STYLES.subText);
+      console.log("%c💡 Analysis: These variables are mirrored. Storing them separately creates unnecessary work for React.", STYLES.subText);
     } else {
-      console.log("%c✨ All state variables have optimal distribution. Your Basis is healthy.", "color: #00b894; font-weight: bold; margin-top: 10px;");
+      console.log("%c✨ All state variables are independent. Your architectural Basis is healthy.", "color: #00b894; font-weight: bold; margin-top: 10px;");
     }
 
-    if (totalVars > 0 && totalVars < 15) {
+    if (totalVars > 0 && totalVars < 20) {
       console.groupCollapsed("%cView Full Correlation Matrix", "color: #636e72; font-size: 11px;");
       const matrix: any = {};
-      entries.forEach(([labelA]) => {
+      entries.forEach(([labelA, metaA]) => {
         const nameA = parseLabel(labelA).name;
         matrix[nameA] = {};
-        entries.forEach(([labelB]) => {
+        entries.forEach(([labelB, metaB]) => {
           const nameB = parseLabel(labelB).name;
-          const sim = similarityFn(history.get(labelA)!, history.get(labelB)!);
+          const sim = calculateCosineSimilarity(metaA.buffer, metaB.buffer);
           matrix[nameA][nameB] = sim > threshold ? `❌ ${(sim * 100).toFixed(0)}%` : `✅`;
         });
       });
@@ -182,7 +208,5 @@ export const displayHealthReport = (
       console.groupEnd();
     }
     console.groupEnd();
-  } else {
-    console.log(`[BASIS HEALTH] Score: ${healthScore.toFixed(1)}% (State Distribution: ${systemRank}/${totalVars})`);
   }
 };

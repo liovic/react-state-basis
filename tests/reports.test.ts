@@ -5,32 +5,37 @@ import { __testEngine__ } from '../src/engine';
 
 const { registerVariable, recordUpdate, printBasisHealthReport, history, configureBasis } = __testEngine__;
 
-describe('Health Reports & Clustering', () => {
+describe('Health Reports & Clustering (v0.4.2)', () => {
     beforeEach(() => {
         configureBasis({ debug: true });
         history.clear();
+
         vi.useFakeTimers();
+
+        if (typeof window !== 'undefined') {
+            (window as any).requestIdleCallback = vi.fn((cb) => cb());
+        }
     });
 
-    it('identifies independent vs clustered variables in health report', () => {
-        const groupSpy = vi.spyOn(console, 'group').mockImplementation(() => {});
-        const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-        
+    it('identifies independent vs clustered variables', async () => {
+        global.window = window;
+        global.document = window.document;
+
+        const groupSpy = vi.spyOn(console, 'group').mockImplementation(() => { });
+
+        configureBasis({ debug: true });
+
         registerVariable('var_a');
         registerVariable('var_b');
-        
+
         recordUpdate('var_a');
         recordUpdate('var_b');
-        
-        vi.advanceTimersByTime(50); 
 
-        printBasisHealthReport(0.5);
+        await vi.runAllTimersAsync();
 
-        const totalCalls = groupSpy.mock.calls.length + logSpy.mock.calls.length;
-        
-        expect(totalCalls).toBeGreaterThan(0);
+        printBasisHealthReport();
 
+        expect(groupSpy).toHaveBeenCalled();
         groupSpy.mockRestore();
-        logSpy.mockRestore();
     });
 });

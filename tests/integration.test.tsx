@@ -25,7 +25,10 @@ describe('Basis System Integration', () => {
       });
     }
 
-    expect(groupSpy).toHaveBeenCalledWith(expect.stringContaining('REDUNDANT PATTERN'), expect.any(String));
+    expect(groupSpy).toHaveBeenCalledWith(
+      expect.stringContaining('TWIN STATE DETECTED'),
+      expect.any(String)
+    );
     groupSpy.mockRestore();
   });
 });
