@@ -65,7 +65,7 @@ describe('Hooks Deep Coverage', () => {
         }, { wrapper });
 
         expect(spy).toHaveBeenCalledWith(
-            expect.stringContaining('SYNC LEAK'),
+            expect.stringContaining('DOUBLE RENDER CYCLE'),
             expect.any(String)
         );
         spy.mockRestore();
@@ -138,7 +138,7 @@ describe('Hooks Deep Coverage', () => {
         }, { wrapper });
 
         expect(spy).toHaveBeenCalledWith(
-            expect.stringContaining('SYNC LEAK'),
+            expect.stringContaining('DOUBLE RENDER CYCLE'),
             expect.any(String)
         );
         spy.mockRestore();
