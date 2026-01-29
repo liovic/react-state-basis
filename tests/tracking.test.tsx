@@ -9,17 +9,22 @@ import * as UI from '../src/core/logger';
 
 describe('Manual Effect Tracking', () => {
   it('triggers TRACKED SYNC LEAK when setState is called inside effect', () => {
-    const spy = vi.spyOn(UI, 'displayCausalHint').mockImplementation(() => {});
+    const spy = vi.spyOn(UI, 'displayCausalHint').mockImplementation(() => { });
     const wrapper = ({ children }: any) => <BasisProvider>{children}</BasisProvider>;
 
     renderHook(() => {
       const [, setB] = useState(0, 'target');
       useEffect(() => {
-        setB(1); 
+        setB(1);
       }, [], 'source_effect');
     }, { wrapper });
 
-    expect(spy).toHaveBeenCalledWith('target', 'source_effect', 'tracking');
+    expect(spy).toHaveBeenCalledWith(
+      'target',
+      expect.objectContaining({ role: 'local' }),
+      'source_effect',
+      expect.anything()
+    );
     spy.mockRestore();
   });
 });

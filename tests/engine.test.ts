@@ -7,7 +7,7 @@ import { WINDOW_SIZE } from '../src/core/constants';
 
 const { registerVariable, recordUpdate, configureBasis, instance } = __testEngine__;
 
-describe('State Engine Core (v0.4.2)', () => {
+describe('State Engine Core (v0.5.x)', () => {
     beforeEach(() => {
         configureBasis({ debug: true });
         history.clear();
@@ -29,7 +29,7 @@ describe('State Engine Core (v0.4.2)', () => {
         expect(spy).not.toHaveBeenCalled();
     });
 
-    it('prevents infinite loops (v0.4.2 Hard Breaker)', () => {
+    it('prevents infinite loops (v0.5.x Hard Breaker)', () => {
         vi.spyOn(UI, 'displayViolentBreaker').mockImplementation(() => { });
         registerVariable('loop');
 

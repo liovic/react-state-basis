@@ -1,13 +1,33 @@
+// src/babel-plugin.js
+
 const path = require('path');
 
 module.exports = function (babel) {
   const { types: t } = babel;
 
+  const LOCAL_HOOKS = [
+    'useState', 'useReducer', 'useOptimistic', 'useActionState',
+    'useTransition', 'useDeferredValue'
+  ];
+
+  const PROJECTION_HOOKS = [
+    'useMemo', 'useCallback'
+  ];
+
+  const CONTEXT_HOOKS = [
+    'createContext', 'useContext'
+  ];
+
+  const SYSTEM_HOOKS = [
+    'useEffect', 'useLayoutEffect', 'useInsertionEffect',
+    'useRef', 'useId', 'useDebugValue', 'useImperativeHandle', 'useSyncExternalStore'
+  ];
+
   const AUDITED_HOOKS = [
-    'useState', 'useReducer', 'useMemo', 'useCallback', 'useEffect',
-    'useLayoutEffect', 'useRef', 'useId', 'useDebugValue', 'useImperativeHandle',
-    'useInsertionEffect', 'useSyncExternalStore', 'useTransition',
-    'useDeferredValue', 'use', 'useOptimistic', 'useActionState'
+    ...LOCAL_HOOKS,
+    ...PROJECTION_HOOKS,
+    ...CONTEXT_HOOKS,
+    ...SYSTEM_HOOKS
   ];
 
   const isIgnoredFile = (comments) =>
@@ -22,10 +42,6 @@ module.exports = function (babel) {
         }
       },
 
-      /**
-       * Splits 'react' imports. Standard features (forwardRef, memo) stay in React.
-       * Audited hooks are redirected to react-state-basis.
-       */
       ImportDeclaration(p, state) {
         if (state.basisDisabled) return;
         const source = p.node.source.value;
@@ -44,12 +60,8 @@ module.exports = function (babel) {
 
           if (basisSpecifiers.length > 0) {
             p.insertBefore(t.importDeclaration(basisSpecifiers, t.stringLiteral('react-state-basis')));
-
-            if (reactSpecifiers.length === 0) {
-              p.remove();
-            } else {
-              p.node.specifiers = reactSpecifiers;
-            }
+            if (reactSpecifiers.length === 0) p.remove();
+            else p.node.specifiers = reactSpecifiers;
           }
         }
       },
@@ -70,6 +82,7 @@ module.exports = function (babel) {
         const fileName = path.basename(filePath);
         let varName = "anonymous";
 
+        // Extracting Variable Names for the Basis Labels
         if (t.isVariableDeclarator(p.parent)) {
           const id = p.parent.id;
           if (t.isArrayPattern(id)) {
@@ -77,25 +90,36 @@ module.exports = function (babel) {
           } else if (t.isIdentifier(id)) {
             varName = id.name;
           }
-        } else if (['useEffect', 'useLayoutEffect', 'useInsertionEffect'].includes(calleeName)) {
+        }
+        else if (['useEffect', 'useLayoutEffect', 'useInsertionEffect'].includes(calleeName)) {
           varName = `effect_L${p.node.loc?.start.line || 'unknown'}`;
         }
 
         const uniqueLabel = `${fileName} -> ${varName}`;
         const args = p.node.arguments;
 
-        if (['useState', 'useRef', 'useId', 'useDebugValue', 'useDeferredValue', 'useTransition', 'useOptimistic'].includes(calleeName)) {
+        // Group 1: Label at index 1 (Standard 1-arg hooks + createContext)
+        if ([
+          'useState', 'useRef', 'useId', 'useDebugValue', 'useDeferredValue',
+          'useTransition', 'useOptimistic', 'createContext'
+        ].includes(calleeName)) {
           if (args.length === 0) args.push(t.identifier('undefined'));
           if (args.length === 1) args.push(t.stringLiteral(uniqueLabel));
         }
 
-        else if (['useEffect', 'useMemo', 'useLayoutEffect', 'useInsertionEffect', 'useCallback'].includes(calleeName)) {
+        // Group 2: Label at index 2 (Dependencies hooks)
+        else if ([
+          'useEffect', 'useMemo', 'useLayoutEffect', 'useInsertionEffect', 'useCallback'
+        ].includes(calleeName)) {
           if (args.length === 1) args.push(t.identifier('undefined'));
           if (args.length === 2) args.push(t.stringLiteral(uniqueLabel));
         }
 
-        else if (['useReducer', 'useActionState', 'useSyncExternalStore', 'useImperativeHandle'].includes(calleeName)) {
-          if (args.length === 2) args.push(t.identifier('undefined'));
+        // Group 3: Label at index 3 (Complex initialization hooks)
+        else if ([
+          'useReducer', 'useActionState', 'useSyncExternalStore', 'useImperativeHandle'
+        ].includes(calleeName)) {
+          while (args.length < 3) args.push(t.identifier('undefined'));
           if (args.length === 3) args.push(t.stringLiteral(uniqueLabel));
         }
       }

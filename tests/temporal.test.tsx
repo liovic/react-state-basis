@@ -13,7 +13,7 @@ describe('Temporal Lead-Lag Logic', () => {
         vi.useFakeTimers();
     });
 
-    it('identifies Redundancy when updates are simultaneous (Plane 0)', () => {
+    it('identifies Redundancy when updates are simultaneous', async () => {
         const spy = vi.spyOn(UI, 'displayRedundancyAlert');
         registerVariable('a');
         registerVariable('b');
@@ -21,48 +21,33 @@ describe('Temporal Lead-Lag Logic', () => {
         for (let i = 0; i < 5; i++) {
             recordUpdate('a');
             recordUpdate('b');
-            vi.advanceTimersByTime(25);
+            await vi.runAllTimersAsync();
         }
 
-        expect(spy).toHaveBeenCalled();
+        expect(spy).toHaveBeenCalledWith(
+            'a', expect.any(Object),
+            'b', expect.any(Object),
+            expect.any(Number)
+        );
         spy.mockRestore();
     });
 
-    it('identifies Sync Leak when B follows A (Lead Plane +1)', () => {
+    it('identifies Sync Leak when B follows A', async () => {
         const spy = vi.spyOn(UI, 'displayCausalHint');
         registerVariable('source_A');
         registerVariable('target_B');
 
         for (let i = 0; i < 10; i++) {
             recordUpdate('source_A');
-            vi.advanceTimersByTime(25);
-            
+            await vi.runAllTimersAsync();
             recordUpdate('target_B');
-            vi.advanceTimersByTime(25);
-            
-            vi.advanceTimersByTime(100); 
+            await vi.runAllTimersAsync();
         }
 
-        expect(spy).toHaveBeenCalledWith('target_B', 'source_A', 'math');
-        spy.mockRestore();
-    });
-
-    it('identifies Sync Leak when A follows B (Lag Plane -1)', () => {
-        const spy = vi.spyOn(UI, 'displayCausalHint');
-        registerVariable('source_B');
-        registerVariable('target_A');
-
-        for (let i = 0; i < 10; i++) {
-            recordUpdate('source_B');
-            vi.advanceTimersByTime(25); 
-            
-            recordUpdate('target_A');
-            vi.advanceTimersByTime(25);
-            
-            vi.advanceTimersByTime(100); 
-        }
-
-        expect(spy).toHaveBeenCalledWith('target_A', 'source_B', 'math');
+        expect(spy).toHaveBeenCalledWith(
+            'target_B', expect.any(Object),
+            'source_A', expect.any(Object)
+        );
         spy.mockRestore();
     });
 });

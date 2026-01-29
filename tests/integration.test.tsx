@@ -26,7 +26,7 @@ describe('Basis System Integration', () => {
     }
 
     expect(groupSpy).toHaveBeenCalledWith(
-      expect.stringContaining('TWIN STATE DETECTED'),
+      expect.stringContaining('DUPLICATE STATE'),
       expect.any(String)
     );
     groupSpy.mockRestore();

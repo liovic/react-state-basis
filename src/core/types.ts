@@ -1,0 +1,50 @@
+// src/core/types.ts
+
+export enum SignalRole {
+    LOCAL = 'local',
+    CONTEXT = 'context',
+    PROJECTION = 'proj',
+}
+
+export interface StateOptions {
+    label?: string;
+    suppressAll?: boolean;
+    role?: SignalRole;
+}
+
+export interface RingBufferMetadata {
+    buffer: Uint8Array;
+    head: number;
+    density: number;
+    options: StateOptions;
+    role: SignalRole;
+}
+
+export interface Entry {
+    label: string;
+    meta: RingBufferMetadata;
+    isVolatile: boolean;
+}
+
+export interface PerformanceMetrics {
+    lastAnalysisTimeMs: number;
+    comparisonCount: number;
+    lastAnalysisTimestamp: number;
+    systemEntropy: number;
+}
+
+export interface BasisEngineState {
+    config: { debug: boolean };
+    history: Map<string, RingBufferMetadata>;
+    currentTickBatch: Set<string>;
+    redundantLabels: Set<string>;
+    booted: boolean;
+    tick: number;
+    isBatching: boolean;
+    currentEffectSource: string | null;
+    pausedVariables: Set<string>;
+    metrics: PerformanceMetrics;
+    alertCount: number;
+    loopCounters: Map<string, number>;
+    lastCleanup: number;
+}

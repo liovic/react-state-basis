@@ -11,11 +11,16 @@ export const BasisHUD: React.FC = () => {
   useEffect(() => {
     if (!isExpanded) return;
 
-    let animationFrame: number;
     let isMounted = true;
+    let animationFrame: number | null = null;
 
     const draw = () => {
-      if (!isMounted) return;
+      if (!isMounted) {
+        if (animationFrame !== null) {
+          cancelAnimationFrame(animationFrame);
+        }
+        return;
+      }
 
       const canvas = canvasRef.current;
       if (!canvas) return;
@@ -24,31 +29,29 @@ export const BasisHUD: React.FC = () => {
 
       const entries = Array.from(history.entries());
       const dpr = window.devicePixelRatio || 1;
-
       const rawWidth = DIM.WINDOW_SIZE * DIM.COL_WIDTH + DIM.LABEL_WIDTH + DIM.PADDING * 2;
-      const rawHeight = Math.max(entries.length * DIM.ROW_HEIGHT + DIM.PADDING * 2, 60);
+      const rawHeight = Math.max(entries.length * DIM.ROW_HEIGHT + DIM.PADDING * 2, 80);
 
       updateCanvasSize(canvas, rawWidth, rawHeight, dpr);
-
       ctx.save();
       ctx.scale(dpr, dpr);
       ctx.clearRect(0, 0, rawWidth, rawHeight);
 
-      if (entries.length === 0) {
-        renderEmptyState(ctx);
-      } else {
-        renderMatrix(ctx, entries);
-      }
+      if (entries.length === 0) renderEmptyState(ctx);
+      else renderMatrix(ctx, entries);
 
       ctx.restore();
       animationFrame = requestAnimationFrame(draw);
     };
 
-    draw();
+    // Kick off the animation loop
+    animationFrame = requestAnimationFrame(draw);
 
     return () => {
       isMounted = false;
-      cancelAnimationFrame(animationFrame);
+      if (animationFrame !== null) {
+        cancelAnimationFrame(animationFrame);
+      }
     };
   }, [isExpanded]);
 
@@ -58,7 +61,6 @@ export const BasisHUD: React.FC = () => {
       {isExpanded && (
         <div style={{ padding: '10px 14px 15px 14px' }}>
           <canvas ref={canvasRef} style={{ display: 'block' }} />
-          <HUDFooter />
         </div>
       )}
     </div>
@@ -90,9 +92,9 @@ function renderMatrix(ctx: CanvasRenderingContext2D, entries: [string, any][]) {
   const cellW = colW - 1.5;
   const cellH = rowH - 4;
 
-  // 1. BATCH THE PATHS
   const gridPath = new Path2D();
   const successPath = new Path2D();
+  const contextPath = new Path2D();
   const errorPath = new Path2D();
 
   ctx.font = "11px Inter, Menlo, monospace";
@@ -100,43 +102,38 @@ function renderMatrix(ctx: CanvasRenderingContext2D, entries: [string, any][]) {
   let rowIndex = 0;
   for (const [label, meta] of entries) {
     const y = rowIndex * rowH + pad;
-    const isRedundant = redundantLabels.has(label);
-    const { buffer, head } = meta;
+    const isContext = meta.role === 'context';
+    const isRedundant = !isContext && redundantLabels.has(label);
 
+    const { buffer, head } = meta;
     let uiPos = 0;
 
     const addToPath = (val: number, xIdx: number) => {
       const x = xIdx * colW + pad;
       if (val === 1) {
-        (isRedundant ? errorPath : successPath).rect(x, y, cellW, cellH);
+        if (isContext) contextPath.rect(x, y, cellW, cellH);
+        else if (isRedundant) errorPath.rect(x, y, cellW, cellH);
+        else successPath.rect(x, y, cellW, cellH);
       } else {
         gridPath.rect(x, y, cellW, cellH);
       }
     };
 
-    // Part 1: Head to End (Old data)
     for (let i = head; i < L; i++) addToPath(buffer[i], uiPos++);
-    // Part 2: Start to Head (New data)
     for (let i = 0; i < head; i++) addToPath(buffer[i], uiPos++);
 
-    // 2. LABELS
     const stateName = label.split(' -> ')[1] || label;
     const textX = (L * colW) + pad + 10;
 
-    // We only recalculate density here because it's for UI only
-    let density = 0;
-    for (let i = 0; i < L; i++) density += buffer[i];
-    const isVolatile = density > 25;
-
-    ctx.fillStyle = isRedundant ? THEME.error : (isVolatile ? THEME.success : THEME.text);
-    ctx.fillText((isRedundant ? "! " : isVolatile ? "~ " : "") + stateName, textX, y + 9);
+    ctx.fillStyle = isContext ? THEME.header : (isRedundant ? THEME.error : THEME.text);
+    ctx.fillText((isContext ? "Ω " : isRedundant ? "! " : "") + stateName, textX, y + 9);
 
     rowIndex++;
   }
 
-  // 3. EXECUTE ONLY 3 DRAWS
   ctx.fillStyle = THEME.grid; ctx.fill(gridPath);
   ctx.fillStyle = THEME.success; ctx.fill(successPath);
+  ctx.fillStyle = THEME.header; ctx.fill(contextPath);
   ctx.fillStyle = THEME.error; ctx.fill(errorPath);
 }
 
@@ -156,23 +153,6 @@ const HUDHeader: React.FC<{ isExpanded: boolean }> = ({ isExpanded }) => (
     }}
   >
     <span>{isExpanded ? 'STATE BASIS MATRIX' : '📐 BASIS ACTIVE'}</span>
-    {isExpanded && <span style={{ opacity: 0.8, fontSize: '9px' }}>v0.4.2</span>}
-  </div>
-);
-
-const HUDFooter: React.FC = () => (
-  <div
-    style={{
-      marginTop: '12px',
-      paddingTop: '8px',
-      borderTop: `1px solid ${THEME.grid}`,
-      color: THEME.textDim,
-      fontSize: '9px',
-      display: 'flex',
-      justifyContent: 'space-between',
-    }}
-  >
-    <span>RING BUFFER ENGINE</span>
-    <span>ZERO ALLOC</span>
+    {isExpanded && <span style={{ opacity: 0.8, fontSize: '9px' }}>v0.5.x</span>}
   </div>
 );

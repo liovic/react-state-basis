@@ -8,10 +8,11 @@ interface RingBufferMetadata {
   buffer: Uint8Array;
   head: number;
   options: any;
+  role: 'local' | 'context' | 'proj';
 }
 
 const LAST_LOG_TIMES = new Map<string, number>();
-const LOG_COOLDOWN = 5000; // 5 seconds suppression between identical alerts
+const LOG_COOLDOWN = 3000; // 3 second suppression for identical alerts
 
 const STYLES = {
   basis: "background: #6c5ce7; color: white; font-weight: bold; padding: 2px 6px; border-radius: 3px;",
@@ -21,11 +22,10 @@ const STYLES = {
   headerGreen: "background: #00b894; color: white; font-weight: bold; padding: 4px 8px; border-radius: 4px;",
   label: "background: #dfe6e9; color: #2d3436; padding: 0 4px; border-radius: 3px; font-family: monospace; font-weight: bold; border: 1px solid #b2bec3;",
   location: "color: #0984e3; font-family: monospace; font-weight: bold;",
-  impact: "background: #f1f2f6; color: #2f3542; padding: 0 4px; border-radius: 3px; font-weight: bold;",
   subText: "color: #636e72; font-size: 11px;",
   bold: "font-weight: bold;",
-  actionMemo: "color: #00b894; font-weight: bold; border: 1px solid #00b894; padding: 0 4px; border-radius: 3px;",
-  actionDelete: "color: #d63031; font-weight: bold; border: 1px solid #d63031; padding: 0 4px; border-radius: 3px;"
+  action: "color: #00b894; font-weight: bold; border: 1px solid #00b894; padding: 0 4px; border-radius: 3px;",
+  warning: "color: #d63031; font-weight: bold; border: 1px solid #d63031; padding: 0 4px; border-radius: 3px;"
 };
 
 const parseLabel = (label: string) => {
@@ -36,115 +36,48 @@ const parseLabel = (label: string) => {
 const shouldLog = (key: string) => {
   const now = Date.now();
   const last = LAST_LOG_TIMES.get(key) || 0;
-
   if (now - last > LOG_COOLDOWN) {
     LAST_LOG_TIMES.set(key, now);
-
-    // Garbage collection for log times
-    if (LAST_LOG_TIMES.size > 100) {
-      const cutoff = now - 3600000; // 1 hour
-      for (const [k, v] of LAST_LOG_TIMES.entries()) {
-        if (v < cutoff) LAST_LOG_TIMES.delete(k);
-      }
-    }
     return true;
   }
   return false;
 };
 
-export const displayBootLog = (windowSize: number) => {
-  if (!isWeb) return;
-  console.log(
-    `%cBasis%cAuditor%c | Temporal Analysis Active (Window: ${windowSize})`,
-    STYLES.basis, STYLES.version, "color: #636e72; font-style: italic; margin-left: 8px;"
-  );
-};
-
-export const displayRedundancyAlert = (labelA: string, labelB: string, sim: number) => {
+export const displayRedundancyAlert = (labelA: string, metaA: RingBufferMetadata, labelB: string, metaB: RingBufferMetadata, sim: number) => {
   if (!isWeb || !shouldLog(`redundant-${labelA}-${labelB}`)) return;
 
   const infoA = parseLabel(labelA);
   const infoB = parseLabel(labelB);
 
-  console.group(`%c ♊ BASIS | TWIN STATE DETECTED `, STYLES.headerRed);
+  const isContextMirror = (metaA.role === 'local' && metaB.role === 'context') || (metaB.role === 'local' && metaA.role === 'context');
+  const local = metaA.role === 'local' ? infoA : infoB;
+  const context = metaA.role === 'context' ? infoA : infoB;
+
+  console.group(`%c ♊ BASIS | ${isContextMirror ? 'CONTEXT MIRRORING' : 'DUPLICATE STATE'} `, STYLES.headerRed);
   console.log(`%c📍 Location: %c${infoA.file}`, STYLES.bold, STYLES.location);
 
-  console.log(
-    `%cThe Rhythm:%c %c${infoA.name}%c and %c${infoB.name}%c are moving in perfect sync.\n` +
-    `%cThis indicates that one is a redundant shadow of the other. Confidence: ${(sim * 100).toFixed(0)}%`,
-    STYLES.bold, "", STYLES.label, "", STYLES.label, "", STYLES.subText
-  );
-
-  console.log(
-    `%cRecommended Fix:%c Derive %c${infoB.name}%c from %c${infoA.name}%c during the render pass.`,
-    STYLES.bold, "", STYLES.actionMemo, "", STYLES.bold, ""
-  );
-  console.groupEnd();
-};
-
-export const displayCausalHint = (targetLabel: string, sourceLabel: string, method: 'math' | 'tracking' = 'math') => {
-  const key = `causal-${sourceLabel}-${targetLabel}`;
-  if (!isWeb || !shouldLog(key)) return;
-
-  const target = parseLabel(targetLabel);
-  const source = parseLabel(sourceLabel);
-
-  console.groupCollapsed(
-    `%c ⚡ BASIS | DOUBLE RENDER CYCLE `,
-    STYLES.headerBlue
-  );
-  console.log(`%c📍 Location: %c${target.file}`, STYLES.bold, STYLES.location);
-  console.log(
-    `%cThe Rhythm:%c %c${source.name}%c pulses, then %c${target.name}%c pulses one frame later.`,
-    STYLES.bold, "", STYLES.label, "", STYLES.label, ""
-  );
-  console.log(
-    `%cThe Impact:%c You are forcing %c2 render passes%c for a single logical change.`,
-    STYLES.bold, "", STYLES.impact, ""
-  );
-  console.log(
-    `%cRecommended Fix:%c Remove the useEffect. Calculate %c${target.name}%c as a derived value or projection.`,
-    STYLES.bold, "", STYLES.actionDelete, ""
-  );
-  console.groupEnd();
-};
-
-export const displayViolentBreaker = (label: string, count: number, threshold: number) => {
-  if (!isWeb) return;
-  const parts = label.split(' -> ');
-
-  console.group(
-    `%c ⚠️  CRITICAL SYSTEM ALERT | BASIS ENGINE `,
-    'background: #dc2626; color: white; font-weight: bold; padding: 8px 16px; font-size: 14px;'
-  );
-  console.error(
-    `%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
-    'color: #dc2626; font-weight: bold;'
-  );
-  console.error(
-    `%cINFINITE LOOP DETECTED\n\n` +
-    `%cVariable: %c${parts[1] || label}\n` +
-    `%cUpdate Frequency: %c${count} updates/sec\n` +
-    `%cExpected Maximum: %c${threshold} updates\n\n` +
-    `%c━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
-    'color: #dc2626; font-size: 16px; font-weight: bold;',
-    'color: #71717a; font-weight: bold;', `color: white; background: #dc2626; padding: 2px 8px;`,
-    'color: #71717a; font-weight: bold;', `color: #fbbf24; font-weight: bold;`,
-    'color: #71717a; font-weight: bold;', `color: #fbbf24; font-weight: bold;`,
-    'color: #dc2626; font-weight: bold;'
-  );
-  console.log(
-    `%cDIAGNOSTICS:\n` +
-    `1. Check for setState inside the render body.\n` +
-    `2. Verify useEffect dependencies (missing or unstable refs).\n` +
-    `3. Look for circular chains (State A -> B -> A).\n\n` +
-    `%cSYSTEM ACTION: Update BLOCKED. Fix your code to resume monitoring.`,
-    'color: #71717a;', 'color: #dc2626; font-weight: bold;'
-  );
+  if (isContextMirror) {
+    console.log(
+      `%cIssue:%c Local variable %c${local.name}%c is just a copy of Global Context %c${context.name}%c.\n` +
+      `%cConfidence: ${(sim * 100).toFixed(0)}%`,
+      STYLES.bold, "", STYLES.label, "", STYLES.label, "", STYLES.subText
+    );
+    console.log(`%cFix:%c Use the context value directly to avoid state drift.`, STYLES.bold, STYLES.warning);
+  } else {
+    console.log(
+      `%cIssue:%c %c${infoA.name}%c and %c${infoB.name}%c are synchronized (${(sim * 100).toFixed(0)}% correlation).`,
+      STYLES.bold, "", STYLES.label, "", STYLES.label, ""
+    );
+    console.log(
+      `%cFix:%c Merge states or calculate %c${infoB.name}%c from %c${infoA.name}%c via %cuseMemo%c.`,
+      STYLES.bold, "", STYLES.label, "", STYLES.label, "", STYLES.action, ""
+    );
+  }
   console.groupEnd();
 };
 
 export const displayHealthReport = (history: Map<string, RingBufferMetadata>, threshold: number) => {
+  if (!isWeb) return;
   const entries = Array.from(history.entries());
   const totalVars = entries.length;
   if (totalVars === 0) return;
@@ -153,15 +86,16 @@ export const displayHealthReport = (history: Map<string, RingBufferMetadata>, th
   const processed = new Set<string>();
   let independentCount = 0;
 
-  // Decompose subspaces
   entries.forEach(([labelA, metaA]) => {
     if (processed.has(labelA)) return;
     const currentCluster = [labelA];
     processed.add(labelA);
+
     entries.forEach(([labelB, metaB]) => {
       if (labelA === labelB || processed.has(labelB)) return;
       const sim = calculateCosineSimilarity(metaA.buffer, metaB.buffer);
       if (sim > threshold) {
+        if (metaA.role === 'context' && metaB.role === 'context') return;
         currentCluster.push(labelB);
         processed.add(labelB);
       }
@@ -172,41 +106,76 @@ export const displayHealthReport = (history: Map<string, RingBufferMetadata>, th
   const systemRank = independentCount + clusters.length;
   const healthScore = (systemRank / totalVars) * 100;
 
-  if (isWeb) {
-    console.group(`%c 📊 BASIS | ARCHITECTURAL HEALTH REPORT `, STYLES.headerGreen);
-    console.log(
-      `%cSystem Efficiency: %c${healthScore.toFixed(1)}% %c(Basis Vectors: ${systemRank} / Total Hooks: ${totalVars})`,
-      STYLES.bold,
-      `color: ${healthScore > 85 ? '#00b894' : '#d63031'}; font-size: 16px; font-weight: bold;`,
-      "color: #636e72; font-style: italic;"
-    );
+  console.group(`%c 📊 BASIS | ARCHITECTURAL HEALTH REPORT `, STYLES.headerGreen);
+  console.log(
+    `%cEfficiency: %c${healthScore.toFixed(1)}% %c(${systemRank}/${totalVars} Sources of Truth)`,
+    STYLES.bold, `color: ${healthScore > 85 ? '#00b894' : '#d63031'}; font-weight: bold;`, STYLES.subText
+  );
 
-    if (clusters.length > 0) {
-      console.log(`%cDetected ${clusters.length} Entangled Clusters:`, "font-weight: bold; color: #e17055; margin-top: 10px;");
-      clusters.forEach((cluster, idx) => {
-        const names = cluster.map(l => parseLabel(l).name).join(' ⟷ ');
-        console.log(` %c${idx + 1}%c ${names}`, "background: #e17055; color: white; border-radius: 50%; padding: 0 5px;", "font-family: monospace;");
-      });
-      console.log("%c💡 Analysis: These variables are mirrored. Storing them separately creates unnecessary work for React.", STYLES.subText);
-    } else {
-      console.log("%c✨ All state variables are independent. Your architectural Basis is healthy.", "color: #00b894; font-weight: bold; margin-top: 10px;");
-    }
+  if (clusters.length > 0) {
+    console.log(`%cDetected ${clusters.length} Sync Issues:`, "font-weight: bold; color: #e17055; margin-top: 10px;");
 
-    if (totalVars > 0 && totalVars < 20) {
-      console.groupCollapsed("%cView Full Correlation Matrix", "color: #636e72; font-size: 11px;");
-      const matrix: any = {};
-      entries.forEach(([labelA, metaA]) => {
-        const nameA = parseLabel(labelA).name;
-        matrix[nameA] = {};
-        entries.forEach(([labelB, metaB]) => {
-          const nameB = parseLabel(labelB).name;
-          const sim = calculateCosineSimilarity(metaA.buffer, metaB.buffer);
-          matrix[nameA][nameB] = sim > threshold ? `❌ ${(sim * 100).toFixed(0)}%` : `✅`;
-        });
-      });
-      console.table(matrix);
+    clusters.forEach((cluster, idx) => {
+      const clusterMetas = cluster.map(l => ({ label: l, meta: history.get(l)!, info: parseLabel(l) }));
+      const contexts = clusterMetas.filter(c => c.meta.role === 'context');
+      const locals = clusterMetas.filter(c => c.meta.role === 'local');
+      const names = clusterMetas.map(c => `${c.meta.role === 'context' ? 'Ω ' : ''}${c.info.name}`).join(' ⟷ ');
+
+      console.group(` %c${idx + 1}%c ${names}`, "background: #e17055; color: white; border-radius: 50%; padding: 0 5px;", "font-family: monospace; font-weight: bold;");
+
+      if (contexts.length > 0) {
+        const ctxNames = contexts.map(c => c.info.name).join(', ');
+        console.log(`%cDiagnosis:%c Context Mirroring. Variables are copying from %c${ctxNames}%c.`, STYLES.bold, "", STYLES.label, "");
+        console.log(`%cSolution:%c Use the context directly to avoid state drift.`, STYLES.bold, STYLES.action);
+      } else {
+        const isExplosion = locals.length > 2;
+        if (isExplosion) {
+          console.log(`%cDiagnosis:%c Boolean Explosion. Multiple states updating in sync.`, STYLES.bold, "");
+          console.log(`%cSolution:%c Combine into a single %cstatus%c string or a %creducer%c.`, STYLES.bold, "", STYLES.label, "", STYLES.label, "");
+        } else {
+          console.log(`%cDiagnosis:%c Redundant State. Variables always change together.`, STYLES.bold, "");
+          console.log(`%cSolution:%c Derive one from the other via %cuseMemo%c.`, STYLES.bold, "", STYLES.label, "");
+        }
+      }
       console.groupEnd();
-    }
-    console.groupEnd();
+    });
+  } else {
+    console.log("%c✨ Your architecture is clean. No redundant state detected.", "color: #00b894; font-weight: bold;");
   }
+  console.groupEnd();
+};
+
+export const displayCausalHint = (targetLabel: string, targetMeta: RingBufferMetadata, sourceLabel: string, sourceMeta: RingBufferMetadata) => {
+  if (!isWeb || !shouldLog(`causal-${sourceLabel}-${targetLabel}`)) return;
+
+  const target = parseLabel(targetLabel);
+  const source = parseLabel(sourceLabel);
+  const isContextTrigger = sourceMeta.role === 'context';
+
+  console.groupCollapsed(`%c ⚡ BASIS | ${isContextTrigger ? 'CONTEXT SYNC LEAK' : 'DOUBLE RENDER'} `, STYLES.headerBlue);
+  console.log(`%c📍 Location: %c${target.file}`, STYLES.bold, STYLES.location);
+
+  if (isContextTrigger) {
+    console.log(`%cIssue:%c Context %c${source.name}%c updated, then local %c${target.name}%c followed 1 frame later.`, STYLES.bold, "", STYLES.label, "", STYLES.label, "");
+    console.log(`%cImpact: This forces React to render the component twice for every change.`, STYLES.subText);
+  } else {
+    console.log(`%cIssue:%c %c${source.name}%c triggers %c${target.name}%c in a separate frame.`, STYLES.bold, "", STYLES.label, "", STYLES.label, "");
+  }
+
+  console.log(`%cFix:%c Derive %c${target.name}%c during the first render.`, STYLES.bold, STYLES.action, STYLES.label, "");
+  console.groupEnd();
+};
+
+export const displayViolentBreaker = (label: string, count: number, threshold: number) => {
+  if (!isWeb) return;
+  const parts = label.split(' -> ');
+  console.group(`%c 🛑 BASIS CRITICAL | CIRCUIT BREAKER `, 'background: #dc2626; color: white; font-weight: bold; padding: 8px 16px;');
+  console.error(`INFINITE LOOP DETECTED\nVariable: ${parts[1] || label}\nFrequency: ${count} updates/sec`);
+  console.log(`%cACTION: Update BLOCKED to prevent browser freeze.`, 'color: #dc2626; font-weight: bold;');
+  console.groupEnd();
+};
+
+export const displayBootLog = (windowSize: number) => {
+  if (!isWeb) return;
+  console.log(`%cBasis%cAuditor%c | v0.5.x Architectural Forensics Active (Window: ${windowSize})`, STYLES.basis, STYLES.version, "color: #636e72; font-style: italic; margin-left: 8px;");
 };
