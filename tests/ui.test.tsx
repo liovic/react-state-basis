@@ -25,7 +25,7 @@ const mockCtx = {
     fillStyle: '',
 };
 
-describe('BasisHUD Component (v0.4.2 Optimized)', () => {
+describe('BasisHUD Component (v0.5.x Optimized)', () => {
     beforeEach(() => {
         vi.useFakeTimers();
         vi.clearAllMocks();
@@ -66,12 +66,13 @@ describe('BasisHUD Component (v0.4.2 Optimized)', () => {
         expect(HTMLCanvasElement.prototype.getContext).toHaveBeenCalled();
     });
 
-    it('draws matrix when history has v0.4.2 metadata', async () => {
+    it('draws matrix when history has v0.5.x metadata', async () => {
         history.set('test.tsx -> count', {
             buffer: new Uint8Array(50).fill(1),
             head: 0,
-            options: {}
-        });
+            options: {},
+            role: 'local'
+        } as any);
 
         render(<BasisHUD />);
         fireEvent.click(screen.getByText(/BASIS ACTIVE/i));
@@ -95,8 +96,9 @@ describe('BasisHUD Component (v0.4.2 Optimized)', () => {
         history.set(label, {
             buffer: new Uint8Array(50).fill(1),
             head: 0,
-            options: {}
-        });
+            options: {},
+            role: 'local'
+        } as any);
         redundantLabels.add(label);
 
         render(<BasisHUD />);

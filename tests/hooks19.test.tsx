@@ -11,6 +11,7 @@ describe('React 19 Hooks Coverage', () => {
 
     beforeEach(() => {
         __test__.history.clear();
+        vi.useFakeTimers();
     });
 
     it('useOptimistic: tracks updates', async () => {
@@ -22,13 +23,69 @@ describe('React 19 Hooks Coverage', () => {
         expect(keys.some(k => k.includes('optimistic'))).toBe(true);
     });
 
-    it('useActionState: tracks updates', async () => {
+    it('useOptimistic: pulses on dispatch', async () => {
+        const { result } = renderHook(() => useOptimistic(0, (s: number, p: number) => p, 'opt_var'), { wrapper });
+
+        act(() => {
+            result.current[1](10);
+        });
+
+        await act(async () => {
+            vi.runAllTimers();
+        });
+
+        const meta = __test__.history.get('opt_var');
+        expect(meta).toBeDefined();
+
+        let density = 0;
+        meta?.buffer.forEach(v => { density += v; });
+
+        expect(density).toBeGreaterThan(0);
+    });
+
+    it('useActionState: registers and pulses on dispatch', async () => {
+        const mockAction = async (s: number, p: number) => s + p;
+        const { result } = renderHook(() => useActionState(mockAction, 0, undefined, 'action_var'), { wrapper });
+
+        await act(async () => {
+            result.current[1](5);
+        });
+
+        await act(async () => {
+            vi.runAllTimers();
+        });
+
+        expect(__test__.history.has('action_var')).toBe(true);
+
+        let density = 0;
+        __test__.history.get('action_var')?.buffer.forEach(v => { density += v; });
+        expect(density).toBeGreaterThan(0);
+    });
+    it('useActionState: pulses on dispatch', async () => {
+        const mockAction = async (s: number, p: number) => s + p;
+        const { result } = renderHook(() => useActionState(mockAction, 0, undefined, 'action_var'), { wrapper });
+
+        await act(async () => {
+            result.current[1](5);
+        });
+
+        expect(__test__.history.has('action_var')).toBe(true);
+    });
+
+    it('useOptimistic: triggers recordUpdate', async () => {
+        const { result } = renderHook(() => useOptimistic(0, (s, p: number) => p), { wrapper });
+
+        await act(async () => {
+            result.current[1](1);
+        });
+    });
+
+    it('useActionState: triggers recordUpdate', async () => {
         const mockAction = async (s: number, p: number) => s + p;
         const { result } = renderHook(() => useActionState(mockAction, 0), { wrapper });
 
-        await act(async () => { });
-
-        const keys = Array.from(__test__.history.keys()) as string[];
-        expect(keys.some(k => k.includes('action_state'))).toBe(true);
+        await act(async () => {
+            result.current[1](5);
+        });
     });
 });

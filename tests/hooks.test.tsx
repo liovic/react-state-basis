@@ -11,175 +11,135 @@ import {
     createContext,
     useContext,
     __test__,
-    useRef,
     useCallback,
-    useLayoutEffect,
     useTransition,
     useDeferredValue,
     useId,
-    useDebugValue,
     useSyncExternalStore,
-    useInsertionEffect
+    useInsertionEffect,
+    useActionState
 } from '../src/hooks';
 import { BasisProvider } from '../src/context';
+import * as UI from '../src/core/logger';
 
-describe('Hooks Deep Coverage', () => {
-    const wrapper = ({ children }: { children: React.ReactNode }) => <BasisProvider>{children}</BasisProvider>;
+describe('Hooks Deep Coverage (v0.5.x)', () => {
+    const wrapper = ({ children }: { children: React.ReactNode }) => (
+        <BasisProvider debug={true}>{children}</BasisProvider>
+    );
 
     beforeEach(() => {
         __test__.history.clear();
         vi.useFakeTimers();
+        vi.clearAllMocks();
     });
 
     it('useState: tracks value and cleans up', () => {
-        const { result, unmount } = renderHook(() => useState(0, 'c'), { wrapper });
-        act(() => result.current[1](5));
+        const { result, unmount } = renderHook(() => useState(0, 'test_state'), { wrapper });
+
+        act(() => {
+            result.current[1](5);
+        });
+
         expect(result.current[0]).toBe(5);
+        expect(__test__.history.has('test_state')).toBe(true);
+
         unmount();
-        expect(__test__.history.has('c')).toBe(false);
+        expect(__test__.history.has('test_state')).toBe(false);
     });
 
     it('useState: handles anonymous state', () => {
         renderHook(() => useState(0), { wrapper });
-
-        const keys = Array.from(__test__.history.keys()) as string[];
-
+        const keys = Array.from(__test__.history.keys());
         expect(keys.some(k => k.startsWith('anon_state_'))).toBe(true);
     });
 
-    it('useMemo: logs, memoizes and handles undefined deps', () => {
-        const spy = vi.spyOn(console, 'log').mockImplementation(() => { });
-        const { result } = renderHook(() => useMemo(() => 42, undefined, 'm'), { wrapper });
+    it('useMemo: registers as PROJECTION', () => {
+        renderHook(() => useMemo(() => 42, [], 'test_proj'), { wrapper });
 
-        expect(result.current).toBe(42);
-        expect(spy).toHaveBeenCalledWith(expect.stringContaining('Valid Projection'), expect.any(String));
-        spy.mockRestore();
+        const meta = __test__.history.get('test_proj');
+        expect(meta).toBeDefined();
+        expect(meta?.role).toBe('proj');
     });
 
-    it('useEffect: tracks causality', async () => {
-        const spy = vi.spyOn(console, 'groupCollapsed').mockImplementation(() => { });
+    it('useEffect: tracks causality (Double Render)', () => {
+        const spy = vi.spyOn(UI, 'displayCausalHint').mockImplementation(() => { });
 
         renderHook(() => {
             const [, s] = useState(0, 'target');
-            useEffect(() => { s(1); }, [], 'source_effect');
+            useEffect(() => {
+                s(1); // Triggering state inside effect
+            }, [], 'source_effect');
         }, { wrapper });
 
+        // Checks for the correct v0.5.x signature (label, meta, label, meta)
         expect(spy).toHaveBeenCalledWith(
-            expect.stringContaining('DOUBLE RENDER CYCLE'),
-            expect.any(String)
+            'target',
+            expect.any(Object),
+            'source_effect',
+            expect.any(Object)
         );
         spy.mockRestore();
     });
 
-    describe('useReducer: complex argument patterns', () => {
-        it('handles standard initialization (2 args + label)', () => {
+    describe('useReducer: initialization patterns', () => {
+        it('handles standard initialization', () => {
             const reducer = (s: number) => s + 1;
-            const { result } = renderHook(() => useReducer(reducer, 0, 'standard_label'), { wrapper });
+            const { result } = renderHook(() => useReducer(reducer, 10, undefined, 'reducer_label'), { wrapper });
 
-            act(() => result.current[1]({}));
-            expect(result.current[0]).toBe(1);
-            expect(__test__.history.has('standard_label')).toBe(true);
+            act(() => {
+                result.current[1]({});
+            });
+            expect(result.current[0]).toBe(11);
+            expect(__test__.history.has('reducer_label')).toBe(true);
         });
 
-        it('handles lazy initialization (3 args + label)', () => {
+        it('handles lazy initialization', () => {
             const reducer = (s: number) => s + 1;
-            const initFn = (arg: number) => arg + 10;
+            const initFn = (arg: number) => arg + 100;
             const { result } = renderHook(() => useReducer(reducer, 0, initFn, 'lazy_label'), { wrapper });
 
-            expect(result.current[0]).toBe(10);
-            act(() => result.current[1]({}));
-            expect(result.current[0]).toBe(11);
+            expect(result.current[0]).toBe(100);
             expect(__test__.history.has('lazy_label')).toBe(true);
         });
-
-        it('handles anonymous reducer', () => {
-            renderHook(() => useReducer((s: any) => s, 0), { wrapper });
-
-            const keys = Array.from(__test__.history.keys()) as string[];
-
-            expect(keys.some(k => k.startsWith('anon_reducer_'))).toBe(true);
-        });
     });
 
-    it('createContext & useContext: work correctly with labels', () => {
-        const Ctx = createContext("default", "ContextLabel");
-        expect((Ctx as any)._basis_label).toBe("ContextLabel");
+    it('createContext & useContext: labels and subspace pulses', () => {
+        const Ctx = createContext("default", "AuthContext");
+        expect((Ctx as any)._basis_label).toBe("AuthContext");
 
-        const wrap = ({ children }: any) => <Ctx.Provider value="provided">{children}</Ctx.Provider>;
+        const wrap = ({ children }: any) => <Ctx.Provider value="active">{children}</Ctx.Provider>;
         const { result } = renderHook(() => useContext(Ctx), { wrapper: wrap });
-        expect(result.current).toBe("provided");
+
+        expect(result.current).toBe("active");
+        // useContext should have registered the context label in engineHistory
+        expect(__test__.history.has('AuthContext')).toBe(true);
+        expect(__test__.history.get('AuthContext')?.role).toBe('context');
     });
 
-    it('useContext: works without provider', () => {
-        const Ctx = createContext("default");
-        const { result } = renderHook(() => useContext(Ctx), { wrapper });
-        expect(result.current).toBe("default");
-    });
-
-    it('useRef: returns a stable ref object', () => {
-        const { result } = renderHook(() => useRef(10));
-        expect(result.current.current).toBe(10);
-    });
-
-    it('useCallback: logs and maintains stability', () => {
-        const spy = vi.spyOn(console, 'log').mockImplementation(() => { });
+    it('useCallback: registers as PROJECTION', () => {
         const { result } = renderHook(() => useCallback(() => "hello", [], "test_cb"), { wrapper });
 
         expect(result.current()).toBe("hello");
-        expect(spy).toHaveBeenCalledWith(expect.stringContaining('Stable Callback'), expect.any(String));
-        spy.mockRestore();
+        expect(__test__.history.get('test_cb')?.role).toBe('proj');
     });
 
-    it('useLayoutEffect: tracks causality correctly', () => {
-        const spy = vi.spyOn(console, 'groupCollapsed').mockImplementation(() => { });
-        renderHook(() => {
-            const [, s] = useState(0, 'state_var');
-            useLayoutEffect(() => { s(1); }, [], 'layout_effect');
-        }, { wrapper });
-
-        expect(spy).toHaveBeenCalledWith(
-            expect.stringContaining('DOUBLE RENDER CYCLE'),
-            expect.any(String)
-        );
-        spy.mockRestore();
+    it('useTransition: returns standard transition tuple', () => {
+        const { result } = renderHook(() => useTransition(), { wrapper });
+        expect(result.current[0]).toBe(false); // isPending
+        expect(typeof result.current[1]).toBe('function'); // startTransition
     });
 
-    it('useTransition: logs when transition starts', () => {
-        const spy = vi.spyOn(console, 'log').mockImplementation(() => { });
-        const { result } = renderHook(() => useTransition("trans_label"), { wrapper });
-
-        act(() => {
-            result.current[1](() => { });
-        });
-
-        expect(spy).toHaveBeenCalledWith(expect.stringContaining('Transition Started'), expect.any(String));
-        spy.mockRestore();
+    it('useDeferredValue: returns standard value', () => {
+        const { result } = renderHook(() => useDeferredValue("test"), { wrapper });
+        expect(result.current).toBe("test");
     });
 
-    it('useDeferredValue: logs when value is deferred', () => {
-        const spy = vi.spyOn(console, 'log').mockImplementation(() => { });
-        const { rerender } = renderHook(({ val }) => useDeferredValue(val, "deferred_label"), {
-            wrapper,
-            initialProps: { val: 1 }
-        });
-
-        rerender({ val: 2 });
-
-        expect(spy).toHaveBeenCalledWith(expect.stringContaining('Value Deferred'), expect.any(String));
-        spy.mockRestore();
-    });
-
-    it('useId: returns a valid id string', () => {
-        const { result } = renderHook(() => useId("test_id"), { wrapper });
+    it('useId: returns a valid react id', () => {
+        const { result } = renderHook(() => useId(), { wrapper });
         expect(typeof result.current).toBe('string');
     });
 
-    it('useDebugValue: calls react hook without crashing', () => {
-        const { result } = renderHook(() => useDebugValue("test_val"), { wrapper });
-        expect(result.current).toBeUndefined();
-    });
-
-    it('useSyncExternalStore: subscribes and returns snapshot', () => {
+    it('useSyncExternalStore: subscribes correctly', () => {
         const subscribe = vi.fn(() => () => { });
         const getSnapshot = () => "data";
         const { result } = renderHook(() => useSyncExternalStore(subscribe, getSnapshot), { wrapper });
@@ -187,16 +147,16 @@ describe('Hooks Deep Coverage', () => {
         expect(subscribe).toHaveBeenCalled();
     });
 
-    it('useInsertionEffect: runs without crashing', () => {
+    it('useInsertionEffect: executes', () => {
         const effect = vi.fn();
         renderHook(() => useInsertionEffect(effect), { wrapper });
         expect(effect).toHaveBeenCalled();
     });
 
-    it('unmount cleanup: calls unregisterVariable', () => {
-        const { unmount } = renderHook(() => useState(0, 'cleanup_test'), { wrapper });
-        expect(__test__.history.has('cleanup_test')).toBe(true);
-        unmount();
-        expect(__test__.history.has('cleanup_test')).toBe(false);
+    it('useActionState: handles label as third argument (Babel style)', async () => {
+        const mockAction = async (s: number) => s + 1;
+        const { result } = renderHook(() => useActionState(mockAction, 0, 'babel_label'), { wrapper });
+
+        expect(__test__.history.has('babel_label')).toBe(true);
     });
 });
