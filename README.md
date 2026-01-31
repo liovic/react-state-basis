@@ -101,7 +101,7 @@ Basis treats every hook as a signal to catch these architectural violations:
 - **⚡ Sync Leaks** - 1-frame delays forcing double renders
 - **🛑 Recursive Oscillation** - Infinite loops (with circuit breaker)
 
-[**See examples & fixes →**](https://github.com/liovic/react-state-basis/wiki/03%3A-The-Forensic-Catalog)
+[**See examples & fixes →**](https://github.com/liovic/react-state-basis/wiki/The-Forensic-Catalog)
 
 ---
 
