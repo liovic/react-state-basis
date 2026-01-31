@@ -137,6 +137,19 @@ Basis is built on heuristics inspired by **Linear Algebra** and **Signal Process
 
 ---
 
+## Roadmap
+
+Each era of Basis answers a different architectural question:
+
+✓ **v0.4.x** - The Correlation Era - *Are these states moving together?*  
+→ **v0.5.x** - The Decomposition Era - *Is this local state just a copy of Context?*  
+**v0.6.x** - The Graph Era - *Which bug should I fix first for maximum impact?*  
+**v0.7.x** - The Information Era - *Does this state carry real information, or is it derivative?*
+
+[**More info**](https://github.com/liovic/react-state-basis/wiki/Roadmap)
+
+---
+
 <div align="center">
 
 Built by [LP](https://github.com/liovic) • [MIT License](https://opensource.org/licenses/MIT)
