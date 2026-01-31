@@ -75,6 +75,13 @@ Fix: Derive b during the first render.
 
 ---
 
+### 4. Skip Specific Files
+Add `// @basis-ignore` at the top of any file to disable instrumentation. This is recommended for:
+- Third-party library wrappers
+- Intentional synchronization (e.g., local mirrors of external caches)
+
+---
+
 ## Visual Proof
 
 The optional HUD shows your **State Basis Matrix** in real-time. Purple pulses ($\Omega$) are Context anchors; Red pulses (!) are redundant shadows.
