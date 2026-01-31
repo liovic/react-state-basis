@@ -144,7 +144,9 @@ Each era of Basis answers a different architectural question:
 ✓ **v0.4.x** - The Correlation Era - *Are these states moving together?*  
 → **v0.5.x** - The Decomposition Era - *Is this local state just a copy of Context?*  
 **v0.6.x** - The Graph Era - *Which bug should I fix first for maximum impact?*  
-**v0.7.x** - The Information Era - *Does this state carry real information, or is it derivative?*
+**v0.7.x** - The Information Era - *Does this state carry real information, or is it derivative?*   
+**v0.8.x** - The Manifold Era - *How many hooks does your component actually need?*
+
 
 [**More info**](https://github.com/liovic/react-state-basis/wiki/Roadmap)
 
