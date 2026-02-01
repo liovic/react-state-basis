@@ -3,7 +3,11 @@
 import * as React from 'react';
 import type { FC, ReactNode, DependencyList, EffectCallback } from 'react';
 
-export const BasisProvider: FC<{ children: ReactNode; debug?: boolean }> = ({ children }) => {
+export const BasisProvider: FC<{
+    children: ReactNode;
+    debug?: boolean;
+    showHUD?: boolean;
+}> = ({ children }) => {
     return React.createElement(React.Fragment, null, children);
 };
 

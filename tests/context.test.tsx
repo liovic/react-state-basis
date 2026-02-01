@@ -14,4 +14,16 @@ describe('BasisProvider', () => {
     const { container } = render(<BasisProvider debug={false}><div>App</div></BasisProvider>);
     expect(container.textContent).not.toContain('BASIS ACTIVE');
   });
+
+    it('hides monitor when showHUD is false, even if debug is true', () => {
+    const { container } = render(
+      <BasisProvider debug={true} showHUD={false}>
+        <div>App</div>
+      </BasisProvider>
+    );
+    
+    expect(container.textContent).not.toContain('BASIS ACTIVE');
+    
+    expect((window as any)._basis_debug).toBe(true);
+  });
 });
