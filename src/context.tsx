@@ -10,9 +10,14 @@ const isWeb = typeof window !== 'undefined' && typeof window.document !== 'undef
 interface BasisProviderProps {
   children: ReactNode;
   debug?: boolean;
+  showHUD?: boolean;
 }
 
-export const BasisProvider: React.FC<BasisProviderProps> = ({ children, debug = true }) => {
+export const BasisProvider: React.FC<BasisProviderProps> = ({
+  children,
+  debug = true,
+  showHUD = true
+}) => {
   useLayoutEffect(() => {
     configureBasis({ debug });
     if (isWeb) {
@@ -23,7 +28,8 @@ export const BasisProvider: React.FC<BasisProviderProps> = ({ children, debug = 
   return (
     <BasisContext.Provider value={{ debug }}>
       {children}
-      {(debug && isWeb) && <BasisHUD />}
+
+      {(debug && showHUD && isWeb) && <BasisHUD />}
     </BasisContext.Provider>
   );
 };

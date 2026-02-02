@@ -45,7 +45,10 @@ export default defineConfig({
 import { BasisProvider } from 'react-state-basis';
 
 root.render(
-  <BasisProvider debug={true}>
+  <BasisProvider 
+    debug={true}
+    showHUD={true} // Set to false for console-only forensics
+  >
     <App />
   </BasisProvider>
 );
@@ -75,10 +78,12 @@ Fix: Derive b during the first render.
 
 ---
 
-### 4. Skip Specific Files
-Add `// @basis-ignore` at the top of any file to disable instrumentation. This is recommended for:
-- Third-party library wrappers
-- Intentional synchronization (e.g., local mirrors of external caches)
+### 5. Control & Scope
+*   **Ghost Mode:** Disable the Matrix UI while keeping console-based forensics active by setting `showHUD={false}` on the provider.
+*   **Selective Auditing:** Add `// @basis-ignore` at the top of any file to disable instrumentation. Recommended for:
+    *   High-frequency animation logic (>60fps)
+    *   Third-party library wrappers
+    *   Intentional synchronization (e.g., local mirrors of external caches)
 
 ---
 
