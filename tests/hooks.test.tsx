@@ -22,13 +22,18 @@ import {
 import { BasisProvider } from '../src/context';
 import * as UI from '../src/core/logger';
 
-describe('Hooks Deep Coverage (v0.5.x)', () => {
+describe('Hooks Deep Coverage (v0.6.x Graph Era)', () => {
     const wrapper = ({ children }: { children: React.ReactNode }) => (
         <BasisProvider debug={true}>{children}</BasisProvider>
     );
 
     beforeEach(() => {
+        // Reset the engine state before every test to ensure isolation
         __test__.history.clear();
+
+        // Ensure Effect Tracking is reset so previous tests don't bleed into next ones
+        __test__.endEffectTracking();
+
         vi.useFakeTimers();
         vi.clearAllMocks();
     });
@@ -47,13 +52,14 @@ describe('Hooks Deep Coverage (v0.5.x)', () => {
         expect(__test__.history.has('test_state')).toBe(false);
     });
 
-    it('useState: handles anonymous state', () => {
+    it('useState: handles anonymous state fallback', () => {
         renderHook(() => useState(0), { wrapper });
         const keys = Array.from(__test__.history.keys());
+        // Should generate "anon_state_0" or similar
         expect(keys.some(k => k.startsWith('anon_state_'))).toBe(true);
     });
 
-    it('useMemo: registers as PROJECTION', () => {
+    it('useMemo: registers as PROJECTION role', () => {
         renderHook(() => useMemo(() => 42, [], 'test_proj'), { wrapper });
 
         const meta = __test__.history.get('test_proj');
@@ -61,17 +67,21 @@ describe('Hooks Deep Coverage (v0.5.x)', () => {
         expect(meta?.role).toBe('proj');
     });
 
-    it('useEffect: tracks causality (Double Render)', () => {
+    it('useEffect: tracks causality (Side-Effect Driver)', () => {
+        // Mock the UI to verify the engine identified the causal link
         const spy = vi.spyOn(UI, 'displayCausalHint').mockImplementation(() => { });
 
         renderHook(() => {
             const [, s] = useState(0, 'target');
+
+            // This effect will be registered as the "Source" in the graph
             useEffect(() => {
                 s(1); // Triggering state inside effect
             }, [], 'source_effect');
         }, { wrapper });
 
-        // Checks for the correct v0.5.x signature (label, meta, label, meta)
+        // The engine should detect that 'source_effect' is currently active 
+        // when 'target' updates.
         expect(spy).toHaveBeenCalledWith(
             'target',
             expect.any(Object),
@@ -103,15 +113,19 @@ describe('Hooks Deep Coverage (v0.5.x)', () => {
         });
     });
 
-    it('createContext & useContext: labels and subspace pulses', () => {
+    it('createContext & useContext: registers labels and tracks subspace', () => {
         const Ctx = createContext("default", "AuthContext");
+        // Verify implementation detail: internal label storage
         expect((Ctx as any)._basis_label).toBe("AuthContext");
 
         const wrap = ({ children }: any) => <Ctx.Provider value="active">{children}</Ctx.Provider>;
+
+        // Render hook inside the provider
         const { result } = renderHook(() => useContext(Ctx), { wrapper: wrap });
 
         expect(result.current).toBe("active");
-        // useContext should have registered the context label in engineHistory
+
+        // Verify engine registration
         expect(__test__.history.has('AuthContext')).toBe(true);
         expect(__test__.history.get('AuthContext')?.role).toBe('context');
     });
@@ -143,6 +157,7 @@ describe('Hooks Deep Coverage (v0.5.x)', () => {
         const subscribe = vi.fn(() => () => { });
         const getSnapshot = () => "data";
         const { result } = renderHook(() => useSyncExternalStore(subscribe, getSnapshot), { wrapper });
+
         expect(result.current).toBe("data");
         expect(subscribe).toHaveBeenCalled();
     });
@@ -154,7 +169,10 @@ describe('Hooks Deep Coverage (v0.5.x)', () => {
     });
 
     it('useActionState: handles label as third argument (Babel style)', async () => {
+        // React 19 hook test
         const mockAction = async (s: number) => s + 1;
+
+        // We pass the label as the 3rd arg (permalink in standard React, label in Basis overload)
         const { result } = renderHook(() => useActionState(mockAction, 0, 'babel_label'), { wrapper });
 
         expect(__test__.history.has('babel_label')).toBe(true);

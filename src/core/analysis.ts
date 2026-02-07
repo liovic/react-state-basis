@@ -3,7 +3,7 @@
 import * as UI from './logger';
 import { calculateSimilarityCircular } from './math';
 import { SIMILARITY_THRESHOLD } from './constants';
-import { SignalRole, Entry } from './types';
+import { SignalRole, Entry, ViolationDetail } from './types';
 
 interface Similarities {
   sync: number;
@@ -12,61 +12,141 @@ interface Similarities {
   max: number;
 }
 
-const calculateAllSimilarities = (entryA: Entry, entryB: Entry): Similarities => {
-  const sync = calculateSimilarityCircular(entryA.meta.buffer, entryA.meta.head, entryB.meta.buffer, entryB.meta.head, 0);
-  const bA = calculateSimilarityCircular(entryA.meta.buffer, entryA.meta.head, entryB.meta.buffer, entryB.meta.head, 1);
-  const aB = calculateSimilarityCircular(entryA.meta.buffer, entryA.meta.head, entryB.meta.buffer, entryB.meta.head, -1);
-  return { sync, bA, aB, max: Math.max(sync, bA, aB) };
-};
+const CAUSAL_MARGIN = 0.05;
 
-const shouldSkipComparison = (entryA: Entry, entryB: Entry, dirtyLabels: Set<string>): boolean => {
-  if (entryA.label === entryB.label) return true;
-
-  if (dirtyLabels.has(entryB.label) && entryA.label > entryB.label) return true;
-
+// --- NOISE REDUCTION ---
+// Check if a node is directly driven by a Virtual Event.
+const isEventDriven = (label: string, graph: Map<string, Map<string, number>>): boolean => {
+  for (const [parent, targets] of graph.entries()) {
+    if (parent.startsWith('Event_Tick_') && targets.has(label)) {
+      return true;
+    }
+  }
   return false;
 };
 
-const detectRedundancy = (entryA: Entry, entryB: Entry, similarities: Similarities, redundantSet: Set<string>): void => {
+const calculateAllSimilarities = (entryA: Entry, entryB: Entry): Similarities => {
+  const sync = calculateSimilarityCircular(
+    entryA.meta.buffer,
+    entryA.meta.head,
+    entryB.meta.buffer,
+    entryB.meta.head,
+    0
+  );
+
+  const bA = calculateSimilarityCircular(
+    entryA.meta.buffer,
+    entryA.meta.head,
+    entryB.meta.buffer,
+    entryB.meta.head,
+    1
+  );
+
+  const aB = calculateSimilarityCircular(
+    entryA.meta.buffer,
+    entryA.meta.head,
+    entryB.meta.buffer,
+    entryB.meta.head,
+    -1
+  );
+
+  return { sync, bA, aB, max: Math.max(sync, bA, aB) };
+};
+
+const shouldSkipComparison = (
+  entryA: Entry,
+  entryB: Entry,
+  dirtyLabels: Set<string>
+): boolean => {
+  if (entryA.label === entryB.label) return true;
+  if (dirtyLabels.has(entryB.label) && entryA.label > entryB.label) return true;
+  return false;
+};
+
+const pushViolation = (
+  map: Map<string, ViolationDetail[]>,
+  source: string,
+  detail: ViolationDetail
+) => {
+  if (!map.has(source)) {
+    map.set(source, []);
+  }
+  const list = map.get(source)!;
+  const exists = list.some(
+    v => v.type === detail.type && v.target === detail.target
+  );
+  if (!exists) {
+    list.push(detail);
+  }
+};
+
+const detectRedundancy = (
+  entryA: Entry,
+  entryB: Entry,
+  similarities: Similarities,
+  redundantSet: Set<string>,
+  violationMap: Map<string, ViolationDetail[]>
+): void => {
   const roleA = entryA.meta.role;
   const roleB = entryB.meta.role;
 
-  // Context-to-Context correlation is architecturally valid
   if (roleA === SignalRole.CONTEXT && roleB === SignalRole.CONTEXT) return;
-
-  // Require 2+ updates for statistical confidence (avoid false positives)
   if (entryA.meta.density < 2 || entryB.meta.density < 2) return;
 
-  // Case 1: Local state mirroring Context (U ∩ W ≠ {0})
   if (roleA === SignalRole.LOCAL && roleB === SignalRole.CONTEXT) {
-    redundantSet.add(entryA.label);  // Mark LOCAL as redundant (context is source of truth)
+    redundantSet.add(entryA.label);
+    pushViolation(violationMap, entryB.label, { type: 'context_mirror', target: entryA.label, similarity: similarities.max });
     UI.displayRedundancyAlert(entryA.label, entryA.meta, entryB.label, entryB.meta, similarities.max);
   }
-  // Case 2: Context mirroring Local (reverse of Case 1)
   else if (roleA === SignalRole.CONTEXT && roleB === SignalRole.LOCAL) {
-    redundantSet.add(entryB.label);  // Mark LOCAL as redundant
+    redundantSet.add(entryB.label);
+    pushViolation(violationMap, entryA.label, { type: 'context_mirror', target: entryB.label, similarity: similarities.max });
     UI.displayRedundancyAlert(entryB.label, entryB.meta, entryA.label, entryA.meta, similarities.max);
   }
-  // Case 3: Duplicate Local State (both in U subspace, but correlated)
   else if (roleA === SignalRole.LOCAL && roleB === SignalRole.LOCAL) {
     redundantSet.add(entryA.label);
     redundantSet.add(entryB.label);
+    pushViolation(violationMap, entryA.label, { type: 'duplicate_state', target: entryB.label, similarity: similarities.max });
+    pushViolation(violationMap, entryB.label, { type: 'duplicate_state', target: entryA.label, similarity: similarities.max });
     UI.displayRedundancyAlert(entryA.label, entryA.meta, entryB.label, entryB.meta, similarities.max);
   }
 };
 
-const detectCausalLeak = (entryA: Entry, entryB: Entry, similarities: Similarities): void => {
-  // Skip warnings for high-frequency updates (animations, >VOLATILITY_THRESHOLD updates in buffer)
-  // These are intentional and expected to update rapidly
+const detectCausalLeak = (
+  entryA: Entry,
+  entryB: Entry,
+  similarities: Similarities,
+  violationMap: Map<string, ViolationDetail[]>,
+  graph: Map<string, Map<string, number>>
+): void => {
   if (entryA.isVolatile || entryB.isVolatile) return;
 
-  // B leads A: B updated, then A updated next frame (B causes A)
+  if (similarities.max - similarities.sync < CAUSAL_MARGIN) return;
+
+  const addLeak = (source: string, target: string) => {
+    // FILTER: If the source is driven by an Event, it's not the root cause.
+    if (isEventDriven(source, graph)) return;
+
+    if (!violationMap.has(source)) {
+      violationMap.set(source, []);
+    }
+    violationMap.get(source)!.push({ type: 'causal_leak', target });
+
+    // LOGGER
+    const sourceEntry = source === entryA.label ? entryA : entryB;
+    const targetEntry = source === entryA.label ? entryB : entryA;
+    UI.displayCausalHint(target, targetEntry.meta, source, sourceEntry.meta);
+  };
+
+  // bA High = A[t] matches B[t+1]. A happens before B.
+  // Source: A, Target: B
   if (similarities.bA === similarities.max) {
-    UI.displayCausalHint(entryB.label, entryB.meta, entryA.label, entryA.meta);
+    addLeak(entryA.label, entryB.label);
   }
-  // A leads B: A updated, then B updated next frame (A causes B)
+  // aB High = A[t+1] matches B[t]. B happens before A.
+  // Source: B, Target: A
   else if (similarities.aB === similarities.max) {
-    UI.displayCausalHint(entryA.label, entryA.meta, entryB.label, entryB.meta);
+    addLeak(entryB.label, entryA.label);
   }
 };
 
@@ -74,9 +154,11 @@ export const detectSubspaceOverlap = (
   dirtyEntries: Entry[],
   allEntries: Entry[],
   redundantSet: Set<string>,
-  dirtyLabels: Set<string>
-): number => {
+  dirtyLabels: Set<string>,
+  graph: Map<string, Map<string, number>>
+): { compCount: number; violationMap: Map<string, ViolationDetail[]> } => {
   let compCount = 0;
+  const violationMap = new Map<string, ViolationDetail[]>();
 
   for (const entryA of dirtyEntries) {
     for (const entryB of allEntries) {
@@ -86,11 +168,11 @@ export const detectSubspaceOverlap = (
       const similarities = calculateAllSimilarities(entryA, entryB);
 
       if (similarities.max > SIMILARITY_THRESHOLD) {
-        detectRedundancy(entryA, entryB, similarities, redundantSet);
-        detectCausalLeak(entryA, entryB, similarities);
+        detectRedundancy(entryA, entryB, similarities, redundantSet, violationMap);
+        detectCausalLeak(entryA, entryB, similarities, violationMap, graph);
       }
     }
   }
 
-  return compCount;
+  return { compCount, violationMap };
 };
