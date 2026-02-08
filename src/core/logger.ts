@@ -10,37 +10,33 @@ const LAST_LOG_TIMES = new Map<string, number>();
 const LOG_COOLDOWN = 3000;
 
 const THEME = {
-  identity: "#6C5CE7",
-  problem: "#D63031",
-  solution: "#FBC531",
-  context: "#0984E3",
-  muted: "#9AA0A6",
+  identity: "#6C5CE7", // Purple (Brand)
+  problem: "#D63031", // Red (Bugs)
+  solution: "#FBC531", // Yellow (Fixes)
+  context: "#0984E3", // Blue (Locations)
+  muted: "#9AA0A6", // Gray (Metadata)
   border: "#2E2E35",
-  success: "#00b894",
+  success: "#00b894", // Green (Good Score)
 };
 
 const STYLES = {
-  // 1. IDENTITY (Brand / Structure)
+  // Structure
   basis: `background: ${THEME.identity}; color: white; font-weight: bold; padding: 2px 6px; border-radius: 3px;`,
   headerIdentity: `background: ${THEME.identity}; color: white; font-weight: bold; padding: 4px 8px; border-radius: 4px;`,
+  headerProblem: `background: ${THEME.problem}; color: white; font-weight: bold; padding: 4px 8px; border-radius: 4px;`,
   version: `background: #a29bfe; color: #2d3436; padding: 2px 6px; border-radius: 3px; margin-left: -4px;`,
 
-  // 2. PROBLEMS (Bugs / Critical)
-  headerProblem: `background: ${THEME.problem}; color: white; font-weight: bold; padding: 4px 8px; border-radius: 4px;`,
-
-  // 3. ACTIONS (Fixes / Solutions)
+  // Actions
   actionLabel: `color: ${THEME.solution}; font-weight: bold;`,
   actionPill: `color: ${THEME.solution}; font-weight: bold; border: 1px solid ${THEME.solution}; padding: 0 4px; border-radius: 3px;`,
 
-  // 4. CONTEXT (Info / Location)
-  headerContext: `background: ${THEME.context}; color: white; font-weight: bold; padding: 4px 8px; border-radius: 4px;`,
-  location: `color: ${THEME.context}; font-family: monospace; font-weight: bold;`,
+  // Context
   impactLabel: `color: ${THEME.context}; font-weight: bold;`,
+  location: `color: ${THEME.context}; font-family: monospace; font-weight: bold;`,
 
-  // 5. GENERIC / MUTED
+  // Text
   subText: `color: ${THEME.muted}; font-size: 11px;`,
   bold: "font-weight: bold;",
-
   label: "background: #dfe6e9; color: #2d3436; padding: 0 4px; border-radius: 3px; font-family: monospace; font-weight: bold; border: 1px solid #b2bec3;",
 };
 
@@ -59,29 +55,58 @@ const shouldLog = (key: string) => {
   return false;
 };
 
+// Helper: Detects boolean flags vs data
+const isBooleanLike = (name: string) =>
+  /^(is|has|can|should|did|will|show|hide)(?=[A-Z_])/.test(name);
+
+// --- SUGGESTION LOGIC ---
 const getSuggestedFix = (issue: RankedIssue, info: { name: string }): string => {
-  if (issue.label === 'External Interaction' || issue.label.includes('Global Event')) {
-    return `These variables update together but live in different hooks/files. Consolidate them into a single %cuseReducer%c or a shared store to prevent tearing.`;
+
+  // 1. GLOBAL EVENT (Split State)
+  if (issue.label.includes('Global Event')) {
+    return `These variables update together but live in different hooks/files. Consolidate them into a single %cuseReducer%c or atomic store update.`;
   }
 
   const violations = issue.violations || [];
   const leaks = violations.filter(v => v.type === 'causal_leak');
   const mirrors = violations.filter(v => v.type === 'context_mirror');
+  const duplicates = violations.filter(v => v.type === 'duplicate_state');
 
-  if (mirrors.length > 0 && leaks.length > 0) {
-    return `Context cycle detected. ${info.name} is participating in a feedback loop. Break the chain by making one context the single source of truth.`;
+  // 2. CONTEXT MIRRORING (Shadow State)
+  if (mirrors.length > 0) {
+    return `Local state is 'shadowing' Global Context. This creates two sources of truth. ` +
+      `Delete the local state and consume the %cContext%c value directly.`;
   }
 
+  // 3. EFFECT CHAINS (Double Render)
   if (leaks.length > 0) {
     const targetName = parseLabel(leaks[0].target).name;
+
+    // If driven by an Effect
     if (issue.label.includes('effect')) {
-      return `This effect triggers a re-render of ${targetName}. Calculate ${targetName} inside the render phase or use %cuseMemo%c.`;
+      return `This Effect triggers a synchronous re-render of ${targetName}. ` +
+        `Calculate ${targetName} during the render phase (Derived State) or wrap in %cuseMemo%c if expensive.`;
     }
-    return `Derive ${targetName} during render instead of in an effect. This variable is acting as a sync driver.`;
+    // If driven by State (A -> B)
+    return `State cascading detected. ${info.name} triggers ${targetName} in a separate frame. ` +
+      `Merge them into one object to update simultaneously.`;
   }
 
+  // 4. DUPLICATE STATE (Restored Logic)
+  if (duplicates.length > 0) {
+    // Boolean Explosion Logic
+    if (isBooleanLike(info.name)) {
+      return `Boolean Explosion detected. Multiple flags are toggling in sync. ` +
+        `Replace impossible states with a single %cstatus%c string ('idle' | 'loading' | 'success').`;
+    }
+    return `Redundant State detected. This variable carries no unique information. ` +
+      `Derive it from the source variable during render, or use %cuseMemo%c to cache the result.`;
+  }
+
+  // 5. HIGH FREQUENCY
   if (issue.metric === 'density') {
-    return `Throttle or debounce ${info.name}. It's updating too fast for the UI to keep up.`;
+    return `High-Frequency Update. This variable updates faster than the frame rate. ` +
+      `Apply %cdebounce%c or move to a Ref to unblock the main thread.`;
   }
 
   return `Check the dependency chain of ${info.name}.`;
@@ -127,6 +152,7 @@ export const displayHealthReport = (history: Map<string, RingBufferMetadata>, th
 
       console.log(`%c${issue.reason}`, `color: ${THEME.muted}; font-style: italic;`);
 
+      // IMPACTS: Grouped by File
       if (issue.violations.length > 0) {
         const byFile = new Map<string, string[]>();
 
@@ -148,8 +174,10 @@ export const displayHealthReport = (history: Map<string, RingBufferMetadata>, th
         }
       }
 
+      // SOLUTION
       const fix = getSuggestedFix(issue, info);
       const fixParts = fix.split('%c');
+
       if (fixParts.length === 3) {
         console.log(
           `%cSolution: %c${fixParts[0]}%c${fixParts[1]}%c${fixParts[2]}`,
@@ -192,15 +220,14 @@ export const displayHealthReport = (history: Map<string, RingBufferMetadata>, th
     if (currentCluster.length > 1) clusters.push(currentCluster); else independentCount++;
   });
 
-  // B. Causality Check (The Graph Penalty)
+  // B. Causality Check (Graph Penalty)
   const totalVars = entries.length;
   const redundancyScore = ((independentCount + clusters.length) / totalVars) * 100;
 
-  // Count internal edges (state triggering state)
   let internalEdges = 0;
   instance.graph.forEach((targets, source) => {
-    if (source.startsWith('Event_Tick_')) return; // Events are good
-    internalEdges += targets.size; // Chains/Leaks are bad
+    if (source.startsWith('Event_Tick_')) return;
+    internalEdges += targets.size;
   });
 
   const causalPenalty = (internalEdges / totalVars) * 100;
@@ -242,13 +269,13 @@ export const displayHealthReport = (history: Map<string, RingBufferMetadata>, th
         const isBoolExplosion = cluster.length > 2 && (boolCount / cluster.length) > 0.5;
         if (isBoolExplosion) {
           console.log(`%cDiagnosis:%c Boolean Explosion. Multiple booleans updating in sync.`, STYLES.bold, "");
-          console.log(`%cSolution:%c Combine into a single %cstatus%c string or a %creducer%c.`, STYLES.actionLabel, "", STYLES.label, "", STYLES.label, "");
+          console.log(`%cSolution:%c Combine into a single %cstatus%c string or a %creducer%c.`, STYLES.actionLabel, "", STYLES.actionPill, "", STYLES.actionPill, "");
         } else if (cluster.length > 2) {
           console.log(`%cDiagnosis:%c Sibling Updates. These states respond to the same event.`, STYLES.bold, "");
-          console.log(`%cSolution:%c This may be intentional. If not, consolidate into a %creducer%c.`, STYLES.actionLabel, "", STYLES.label, "");
+          console.log(`%cSolution:%c This may be intentional. If not, consolidate into a %creducer%c.`, STYLES.actionLabel, "", STYLES.actionPill, "");
         } else {
           console.log(`%cDiagnosis:%c Redundant State. Variables always change together.`, STYLES.bold, "");
-          console.log(`%cSolution:%c Derive one from the other via %cuseMemo%c.`, STYLES.actionLabel, "", STYLES.label, "");
+          console.log(`%cSolution:%c Derive one from the other via %cuseMemo%c.`, STYLES.actionLabel, "", STYLES.actionPill, "");
         }
       }
       console.groupEnd();
@@ -259,6 +286,8 @@ export const displayHealthReport = (history: Map<string, RingBufferMetadata>, th
   console.groupEnd();
 };
 
+// --- LIVE STREAM LOGGERS ---
+
 export const displayRedundancyAlert = (labelA: string, metaA: RingBufferMetadata, labelB: string, metaB: RingBufferMetadata, sim: number) => {
   if (!isWeb || !shouldLog(`redundant-${labelA}-${labelB}`)) return;
   const infoA = parseLabel(labelA);
@@ -268,7 +297,28 @@ export const displayRedundancyAlert = (labelA: string, metaA: RingBufferMetadata
   console.group(`%c ♊ BASIS | ${isContextMirror ? 'CONTEXT MIRRORING' : 'DUPLICATE STATE'} `, STYLES.headerProblem);
   console.log(`%c📍 Location: %c${infoA.file}`, STYLES.bold, STYLES.location);
   console.log(`%cIssue:%c ${infoA.name} and ${infoB.name} are synchronized (${(sim * 100).toFixed(0)}%).`, STYLES.bold, "");
-  console.log(`%cFix:%c ${isContextMirror ? 'Use context directly.' : 'Use useMemo.'}`, STYLES.bold, STYLES.actionLabel);
+
+  if (isContextMirror) {
+    console.log(`%cFix:%c Local state is 'shadowing' Global Context. Delete the local state and consume the %cContext%c value directly.`,
+      STYLES.bold, "",
+      STYLES.actionPill, ""
+    );
+  } else {
+    if (isBooleanLike(infoA.name) || isBooleanLike(infoB.name)) {
+      console.log(`%cFix:%c Boolean Explosion detected. Merge flags into a single %cstatus%c string or %cuseReducer%c.`,
+        STYLES.bold, "",
+        STYLES.actionPill, "",
+        STYLES.actionPill, ""
+      );
+    } else {
+      console.log(`%cFix:%c Redundant State detected. Derive %c${infoB.name}%c from %c${infoA.name}%c during render, or use %cuseMemo%c.`,
+        STYLES.bold, "",
+        STYLES.label, "",
+        STYLES.label, "",
+        STYLES.actionPill, ""
+      );
+    }
+  }
   console.groupEnd();
 };
 
@@ -278,10 +328,25 @@ export const displayCausalHint = (targetLabel: string, targetMeta: RingBufferMet
   const source = parseLabel(sourceLabel);
   const isCtx = sourceMeta.role === SignalRole.CONTEXT;
 
+  const isEffect = sourceLabel.includes('effect') || sourceLabel.includes('useLayoutEffect');
+
   console.groupCollapsed(`%c ⚡ BASIS | ${isCtx ? 'CONTEXT SYNC LEAK' : 'DOUBLE RENDER'} `, STYLES.headerProblem);
   console.log(`%c📍 Location: %c${target.file}`, STYLES.bold, STYLES.location);
   console.log(`%cIssue:%c ${source.name} triggers ${target.name} in separate frames.`, STYLES.bold, "");
-  console.log(`%cFix:%c Derive ${target.name} during render.`, STYLES.bold, STYLES.actionLabel);
+
+  if (isEffect) {
+    console.log(`%cFix:%c Derive %c${target.name}%c during the render phase (remove effect) or wrap in %cuseMemo%c.`,
+      STYLES.bold, "",
+      STYLES.label, "",
+      STYLES.actionPill, ""
+    );
+  } else {
+    console.log(`%cFix:%c Merge %c${target.name}%c with %c${source.name}%c into a single state update.`,
+      STYLES.bold, "",
+      STYLES.label, "",
+      STYLES.label, ""
+    );
+  }
   console.groupEnd();
 };
 
@@ -296,5 +361,5 @@ export const displayViolentBreaker = (label: string, count: number, threshold: n
 
 export const displayBootLog = (windowSize: number) => {
   if (!isWeb) return;
-  console.log(`%cBasis%cAuditor%c (Window: ${windowSize})`, STYLES.basis, STYLES.version, `color: ${THEME.muted}; font-style: italic; margin-left: 8px;`);
+  console.log(`%cBasis%cAuditor%c "Graph Era" (Window: ${windowSize})`, STYLES.basis, STYLES.version, `color: ${THEME.muted}; font-style: italic; margin-left: 8px;`);
 };

@@ -123,16 +123,14 @@ const detectCausalLeak = (
 
   if (similarities.max - similarities.sync < CAUSAL_MARGIN) return;
 
-  const addLeak = (source: string, target: string) => {
-    // FILTER: If the source is driven by an Event, it's not the root cause.
-    if (isEventDriven(source, graph)) return;
+const addLeak = (source: string, target: string) => {
+    if (isEventDriven(target, graph)) return;
 
     if (!violationMap.has(source)) {
       violationMap.set(source, []);
     }
     violationMap.get(source)!.push({ type: 'causal_leak', target });
-
-    // LOGGER
+    
     const sourceEntry = source === entryA.label ? entryA : entryB;
     const targetEntry = source === entryA.label ? entryB : entryA;
     UI.displayCausalHint(target, targetEntry.meta, source, sourceEntry.meta);
