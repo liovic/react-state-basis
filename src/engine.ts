@@ -20,6 +20,9 @@ import {
 
 const BASIS_INSTANCE_KEY = Symbol.for('__basis_engine_instance__');
 
+const GRAPH_CLEANUP_INTERVAL = 5000; // Run every 5 seconds
+const EVENT_TTL = 10000; // Keep events for 10 seconds
+
 const NULL_SIGNAL: RingBufferMetadata = {
   role: SignalRole.PROJECTION,
   buffer: new Uint8Array(0),
@@ -31,6 +34,24 @@ const NULL_SIGNAL: RingBufferMetadata = {
 // --- v0.6.0 EVENT TOPOLOGY ---
 let activeEventId: string | null = null;
 let activeEventTimer: any = null;
+
+// Garbage Collect old Event Nodes
+const pruneGraph = () => {
+  const now = Date.now();
+  
+  // Only checking the keys (Source Nodes)
+  for (const source of instance.graph.keys()) {
+    if (source.startsWith('Event_Tick_')) {
+      // Extract timestamp from "Event_Tick_1738492..."
+      const parts = source.split('_');
+      const timestamp = parseInt(parts[2], 10);
+      
+      if (now - timestamp > EVENT_TTL) {
+        instance.graph.delete(source);
+      }
+    }
+  }
+};
 
 const getEventId = () => {
   if (!activeEventId) {
@@ -216,6 +237,8 @@ export const recordUpdate = (label: string): boolean => {
   if (now - instance.lastCleanup > 1000) {
     instance.loopCounters.clear();
     instance.lastCleanup = now;
+
+    pruneGraph();
   }
 
   const count = (instance.loopCounters.get(label) || 0) + 1;
