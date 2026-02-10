@@ -62,18 +62,18 @@ const [a, setA] = useState(0);
 const [b, setB] = useState(0);
 
 useEffect(() => {
-  setB(a); // ⚡ BASIS: "Double Render Detected"
+  setB(a + 1); // ⚡ BASIS: "Double Render Detected"
 }, [a]);
 
 return <button onClick={() => setA(a + 1)}>Pulse Basis</button>;
 ```
 
-Click the button. You should see this in your console within ~100ms:
+Click the button. You should see this in your console:
 ```
 ⚡ BASIS | DOUBLE RENDER
 📍 Location: YourComponent.tsx
-Issue: a triggers b in a separate frame.
-Fix: Derive b during the first render.
+Issue: effect_L5 triggers b in a separate frame.
+Fix: Derive b during the render phase (remove effect) or wrap in useMemo.
 ```
 
 ---
@@ -92,19 +92,23 @@ Fix: Derive b during the first render.
 The optional HUD shows your **State Basis Matrix** in real-time. Purple pulses ($\Omega$) are Context anchors; Red pulses (!) are redundant shadows.
 
 <p align="center">
-  <img src="./assets/050Basis.gif" width="800" alt="Basis v0.5.0 Demo" />
+  <img src="./assets/050Basis.gif" width="800" alt="Basis Demo" />
 </p>
+
+> **Note:** While the HUD visualizes real-time updates, the **Architectural Health Report** (Console) provides the deep topological analysis.
 
 ---
 
 ## What Basis Detects
 
-Basis treats every hook as a signal to catch these architectural violations:
+Basis uses **Graph Theory**, **Signal Processing**, and **Linear Algebra** to identify architectural violations that static linters miss:
 
-- **Ω Context Mirroring** - Local state shadowing global context
-- **♊ Duplicate State** - Independent variables that always update together  
-- **⚡ Sync Leaks** - 1-frame delays forcing double renders
-- **🛑 Recursive Oscillation** - Infinite loops (with circuit breaker)
+- **⚡ Double Renders (Sync Leaks)** - Detects when a `useEffect` triggers a state update immediately after a render, forcing the browser to paint twice.
+- **⚡ Prime Movers (Root Causes)** - Ignores downstream symptoms and points you to the exact hook or event that started the chain reaction.
+- **⚡ Fragmented Updates** - Detects when a single click forces updates in multiple different files/contexts simultaneously (Tearing risk).
+- **Ω Context Mirroring** - Detects when you redundanty copy Global Context data into Local State (creating two sources of truth).
+- **♊ Duplicate State** - Identifies variables that always update at the exact same time and should be merged (e.g. `isLoading` + `isSuccess`).
+- **🛑 Infinite Loops** - A safety circuit-breaker that kills the auditor before a recursive update freezes your browser.
 
 [**See examples & fixes →**](https://github.com/liovic/react-state-basis/wiki/The-Forensic-Catalog)
 
@@ -115,9 +119,9 @@ Basis treats every hook as a signal to catch these architectural violations:
 ### Architectural Health Report
 Check your entire app's state architecture by running `window.printBasisReport()` in the console.
 
-*   **Efficiency Score:** Ratio of independent signals to total hooks.
-*   **Entangled Clusters:** Groups of variables that move in sync (Boolean Explosion).
-*   **Correlation Matrix:** Raw pairwise similarity data for deep-dive forensics.
+*   **Refactor Priorities:** Uses **Spectral Influence** (Eigenvector Centrality) to rank bugs by their systemic impact. It tells you *what* to fix first.
+*   **Efficiency Score:** A calculated percentage of how "clean" your architecture is (Sources of Truth - Causal Leaks).
+*   **Sync Issues:** Groups entangled variables into clusters (e.g., Boolean Explosions).
 
 ### Hardware Telemetry
 Verify engine efficiency and heap stability in real-time via `window.getBasisMetrics()`.
@@ -129,7 +133,7 @@ Verify engine efficiency and heap stability in real-time via `window.getBasisMet
 Basis is verified against industry-standard codebases to ensure high-fidelity detection:
 
 *   **Excalidraw (114k⭐)** - Caught a theme-sync leak forcing a double-render on every toggle. [**PR #10637**](https://github.com/excalidraw/excalidraw/pull/10637)
-*   **shadcn-admin (10k⭐)** - Detected redundant state pattern in viewport detection hooks. [**PR #274**](https://github.com/satnaing/shadcn-admin/pull/274)
+*   **shadcn-admin (10k⭐)** - Detected redundant state pattern in viewport detection hooks. [**PR #274**](https://github.com/satnaing/shadcn-admin/pull/274) (MERGED)
 
 ---
 
@@ -145,7 +149,7 @@ Basis is verified against industry-standard codebases to ensure high-fidelity de
 
 ## Documentation & Theory
 
-Basis is built on heuristics inspired by **Linear Algebra** and **Signal Processing**. To understand the underlying math, visit the [**Full Wiki**](https://github.com/liovic/react-state-basis/wiki).
+Basis is built on heuristics inspired by **Signal Processing**, **Linear Algebra**, and **Graph Theory**. To understand the underlying math, visit the [**Full Wiki**](https://github.com/liovic/react-state-basis/wiki).
 
 ---
 
@@ -154,8 +158,8 @@ Basis is built on heuristics inspired by **Linear Algebra** and **Signal Process
 Each era of Basis answers a different architectural question:
 
 ✓ **v0.4.x** - The Correlation Era - *Are these states moving together?*  
-→ **v0.5.x** - The Decomposition Era - *Is this local state just a copy of Context?*  
-**v0.6.x** - The Graph Era - *Which bug should I fix first for maximum impact?*  
+✓ **v0.5.x** - The Decomposition Era - *Is this local state just a copy of Context?*  
+→ **v0.6.x** - The Graph Era - *Which bug should I fix first for maximum impact?*  
 **v0.7.x** - The Information Era - *Does this state carry real information, or is it derivative?*   
 **v0.8.x** - The Manifold Era - *How many hooks does your component actually need?*
 

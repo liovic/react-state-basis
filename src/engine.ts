@@ -7,7 +7,8 @@ import {
   StateOptions,
   RingBufferMetadata,
   BasisEngineState,
-  Entry
+  Entry,
+  ViolationDetail
 } from './core/types';
 import {
   WINDOW_SIZE,
@@ -19,7 +20,9 @@ import {
 
 const BASIS_INSTANCE_KEY = Symbol.for('__basis_engine_instance__');
 
-// Pre-allocated static signal to prevent GC churn in high-frequency causal tracking
+const GRAPH_CLEANUP_INTERVAL = 5000; // Run every 5 seconds
+const EVENT_TTL = 10000; // Keep events for 10 seconds
+
 const NULL_SIGNAL: RingBufferMetadata = {
   role: SignalRole.PROJECTION,
   buffer: new Uint8Array(0),
@@ -28,10 +31,40 @@ const NULL_SIGNAL: RingBufferMetadata = {
   options: {}
 };
 
-/**
- * GLOBAL SINGLETON HMR BRIDGE
- * Ensures the state history survives Hot Module Replacement cycles.
- */
+// --- v0.6.0 EVENT TOPOLOGY ---
+let activeEventId: string | null = null;
+let activeEventTimer: any = null;
+
+// Garbage Collect old Event Nodes
+const pruneGraph = () => {
+  const now = Date.now();
+  
+  // Only checking the keys (Source Nodes)
+  for (const source of instance.graph.keys()) {
+    if (source.startsWith('Event_Tick_')) {
+      // Extract timestamp from "Event_Tick_1738492..."
+      const parts = source.split('_');
+      const timestamp = parseInt(parts[2], 10);
+      
+      if (now - timestamp > EVENT_TTL) {
+        instance.graph.delete(source);
+      }
+    }
+  }
+};
+
+const getEventId = () => {
+  if (!activeEventId) {
+    activeEventId = `Event_Tick_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+    if (activeEventTimer) clearTimeout(activeEventTimer);
+    activeEventTimer = setTimeout(() => {
+      activeEventId = null;
+    }, 0);
+  }
+  return activeEventId;
+};
+
+// GLOBAL SINGLETON HMR BRIDGE
 const getGlobalInstance = (): BasisEngineState => {
   const root = globalThis as any;
   if (!root[BASIS_INSTANCE_KEY]) {
@@ -44,7 +77,10 @@ const getGlobalInstance = (): BasisEngineState => {
       tick: 0,
       isBatching: false,
       currentEffectSource: null,
+      lastStateUpdate: null,
       pausedVariables: new Set<string>(),
+      graph: new Map<string, Map<string, number>>(),
+      violationMap: new Map<string, ViolationDetail[]>(),
       metrics: {
         lastAnalysisTimeMs: 0,
         comparisonCount: 0,
@@ -59,7 +95,7 @@ const getGlobalInstance = (): BasisEngineState => {
   return root[BASIS_INSTANCE_KEY];
 };
 
-const instance = getGlobalInstance();
+export const instance = getGlobalInstance();
 
 export const config = instance.config;
 export const history = instance.history;
@@ -69,10 +105,7 @@ export const currentTickBatch = instance.currentTickBatch;
 let currentTickRegistry: Record<string, boolean> = {};
 const dirtyLabels = new Set<string>();
 
-/**
- * TEMPORAL ENTROPY
- * Quantifies the information density of a specific tick.
- */
+// TEMPORAL ENTROPY
 const calculateTickEntropy = (tickIdx: number) => {
   let activeCount = 0;
   const total = instance.history.size;
@@ -84,15 +117,21 @@ const calculateTickEntropy = (tickIdx: number) => {
   return 1 - (activeCount / total);
 };
 
+export const recordEdge = (source: string, target: string) => {
+  if (!source || !target || source === target) return;
+  if (!instance.graph.has(source)) {
+    instance.graph.set(source, new Map());
+  }
+  const targets = instance.graph.get(source)!;
+  targets.set(target, (targets.get(target) || 0) + 1);
+};
+
 export const analyzeBasis = () => {
   if (!instance.config.debug || dirtyLabels.size === 0) {
     return;
   }
 
   const scheduler = (globalThis as any).requestIdleCallback || ((cb: any) => setTimeout(cb, 1));
-
-  // 1. ATOMIC SWAP: Capture current dirty state and clear immediately.
-  // This ensures updates happening DURING analysis are captured for the next frame.
   const snapshot = new Set(dirtyLabels);
   dirtyLabels.clear();
 
@@ -101,7 +140,6 @@ export const analyzeBasis = () => {
     const allEntries: Entry[] = [];
     const dirtyEntries: Entry[] = [];
 
-    // 2. Collect entries based on the snapshot
     instance.history.forEach((meta: RingBufferMetadata, label: string) => {
       if (meta.options.suppressAll || meta.density === 0) return;
 
@@ -118,7 +156,6 @@ export const analyzeBasis = () => {
 
     if (dirtyEntries.length === 0 || allEntries.length < 2) return;
 
-    // 3. PERSISTENCE: Maintain debt markers for signals that weren't in the snapshot
     const nextRedundant = new Set<string>();
     instance.redundantLabels.forEach((l: string) => {
       if (!snapshot.has(l)) {
@@ -126,19 +163,36 @@ export const analyzeBasis = () => {
       }
     });
 
-    // 4. LOGIC PASS: Direct Sum Decomposition
-    const compCount = detectSubspaceOverlap(
+    const { compCount, violationMap } = detectSubspaceOverlap(
       dirtyEntries,
       allEntries,
       nextRedundant,
-      snapshot
+      snapshot,
+      instance.graph
     );
 
-    // 5. COMMIT: Update the global engine state
     instance.redundantLabels.clear();
     nextRedundant.forEach((l: string) => {
       instance.redundantLabels.add(l);
     });
+
+    violationMap.forEach((newList, label) => {
+      const existing = instance.violationMap.get(label) || [];
+      newList.forEach(detail => {
+        const alreadyExists = existing.some(
+          v => v.type === detail.type && v.target === detail.target
+        );
+        if (!alreadyExists) {
+          existing.push(detail);
+        }
+      });
+      instance.violationMap.set(label, existing);
+    });
+
+    if (instance.violationMap.size > 500) {
+      const keys = Array.from(instance.violationMap.keys()).slice(0, 200);
+      keys.forEach(k => instance.violationMap.delete(k));
+    }
 
     instance.metrics.lastAnalysisTimeMs = performance.now() - analysisStart;
     instance.metrics.comparisonCount = compCount;
@@ -153,7 +207,6 @@ const processHeartbeat = () => {
     const oldValue = meta.buffer[meta.head];
     const newValue = instance.currentTickBatch.has(label) ? 1 : 0;
 
-    // Density Update with drift prevention
     meta.buffer[meta.head] = newValue;
     if (oldValue !== newValue) {
       meta.density += (newValue - oldValue);
@@ -168,17 +221,14 @@ const processHeartbeat = () => {
   instance.currentTickBatch.clear();
   currentTickRegistry = {};
   instance.isBatching = false;
+  instance.lastStateUpdate = null;
 
-  // Reactive trigger: Audit if signals are dirty
   if (dirtyLabels.size > 0) {
     analyzeBasis();
   }
 };
 
-/**
- * INTERCEPTION LAYER
- * Called by hook proxies to record state pulses.
- */
+// INTERCEPTION LAYER
 export const recordUpdate = (label: string): boolean => {
   if (!instance.config.debug) return true;
   if (instance.pausedVariables.has(label)) return false;
@@ -187,33 +237,60 @@ export const recordUpdate = (label: string): boolean => {
   if (now - instance.lastCleanup > 1000) {
     instance.loopCounters.clear();
     instance.lastCleanup = now;
+
+    pruneGraph();
   }
 
   const count = (instance.loopCounters.get(label) || 0) + 1;
   instance.loopCounters.set(label, count);
 
-  // SECURITY: Hard Circuit Breaker
   if (count > LOOP_THRESHOLD) {
     UI.displayViolentBreaker(label, count, LOOP_THRESHOLD);
     instance.pausedVariables.add(label);
     return false;
   }
 
-  if (instance.currentEffectSource && instance.currentEffectSource !== label) {
-    const targetMeta = instance.history.get(label);
-    const sourceMeta = instance.history.get(instance.currentEffectSource);
+  const meta = instance.history.get(label);
 
-    if (targetMeta) {
-      const sourceDensity = sourceMeta?.density || 0;
-      const isVolatile = targetMeta.density > VOLATILITY_THRESHOLD || sourceDensity > VOLATILITY_THRESHOLD;
+  // --- CAUSAL RESOLUTION ---
+  let edgeSource: string | null = null;
 
-      if (!isVolatile) {
-        UI.displayCausalHint(label, targetMeta, instance.currentEffectSource, sourceMeta || NULL_SIGNAL);
+  // PRIORITY 1: Explicit Effect Driver
+  // If we are inside an effect, it IS the cause.
+  if (instance.currentEffectSource) {
+    edgeSource = instance.currentEffectSource;
+  }
+  // PRIORITY 2: The Event Horizon (Siblings)
+  // We removed the synchronous state-to-state link here.
+  // If A and B update in the same event handler, they are siblings (Event -> A, Event -> B).
+  // They are NOT a dependency chain (A -> B).
+  else {
+    edgeSource = getEventId();
+  }
+
+  // Record graph edge
+  if (edgeSource && edgeSource !== label) {
+    recordEdge(edgeSource, label);
+
+    // Hinting Logic (only for non-events)
+    if (instance.currentEffectSource && instance.currentEffectSource !== label) {
+
+      const sourceMeta = instance.history.get(instance.currentEffectSource) || NULL_SIGNAL;
+
+      // Volatility Guard
+      if (meta && sourceMeta && meta.density < VOLATILITY_THRESHOLD && sourceMeta.density < VOLATILITY_THRESHOLD) {
+        UI.displayCausalHint(label, meta, instance.currentEffectSource, sourceMeta);
       }
     }
   }
 
-  // BATCHING: Align updates into a single temporal tick
+  // Source Tracking
+  // We still track this for future features, but we don't use it for 
+  // immediate causal attribution anymore to prevent sibling-glomming.
+  if (meta && meta.role === SignalRole.LOCAL && !instance.currentEffectSource) {
+    instance.lastStateUpdate = label;
+  }
+
   if (currentTickRegistry[label]) return true;
 
   currentTickRegistry[label] = true;
@@ -268,17 +345,16 @@ export const endEffectTracking = () => {
 
 export const printBasisHealthReport = (threshold = 0.5) => {
   if (!instance.config.debug) return;
-  UI.displayHealthReport(instance.history, threshold);
+  UI.displayHealthReport(instance.history, threshold, instance.violationMap);
 };
 
 export const getBasisMetrics = () => ({
-  engine: 'v0.5.x',
+  engine: 'v0.6.x',
   hooks: instance.history.size,
   analysis_ms: instance.metrics.lastAnalysisTimeMs.toFixed(3),
   entropy: instance.metrics.systemEntropy.toFixed(3)
 });
 
-// Global Attachments
 if (typeof window !== 'undefined') {
   (window as any).printBasisReport = printBasisHealthReport;
   (window as any).getBasisMetrics = getBasisMetrics;
