@@ -1,4 +1,4 @@
-// core/ranker.ts
+// src/core/ranker.ts
 
 import { calculateSpectralInfluence } from './graph';
 import { RingBufferMetadata, SignalRole, RankedIssue, ViolationDetail } from './types';

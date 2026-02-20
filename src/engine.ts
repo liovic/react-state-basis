@@ -38,7 +38,7 @@ let activeEventTimer: any = null;
 // Garbage Collect old Event Nodes
 const pruneGraph = () => {
   const now = Date.now();
-  
+
   // Only checking the keys (Source Nodes)
   for (const source of instance.graph.keys()) {
     if (source.startsWith('Event_Tick_')) {
@@ -56,10 +56,10 @@ const pruneGraph = () => {
 const getEventId = () => {
   if (!activeEventId) {
     activeEventId = `Event_Tick_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
-    if (activeEventTimer) clearTimeout(activeEventTimer);
-    activeEventTimer = setTimeout(() => {
+
+    requestAnimationFrame(() => {
       activeEventId = null;
-    }, 0);
+    });
   }
   return activeEventId;
 };
@@ -316,7 +316,8 @@ export const configureBasis = (c: any) => {
 };
 
 export const registerVariable = (l: string, o: StateOptions = {}) => {
-  if (!instance.config.debug || o.suppressAll) return;
+  if (o.suppressAll) return;
+
   if (!instance.history.has(l)) {
     instance.history.set(l, {
       buffer: new Uint8Array(WINDOW_SIZE),

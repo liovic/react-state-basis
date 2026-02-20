@@ -252,14 +252,22 @@ export const displayHealthReport = (history: Map<string, RingBufferMetadata>, th
         meta: history.get(l)!,
         name: parseLabel(l).name
       }));
-      const hasCtx = clusterMetas.some(c => c.meta.role === SignalRole.CONTEXT);
-      const names = clusterMetas.map(c => `${c.meta.role === SignalRole.CONTEXT ? 'Ω ' : ''}${c.name}`).join(' ⟷ ');
+      const hasCtx = clusterMetas.some(c =>
+        c.meta.role === SignalRole.CONTEXT || c.meta.role === SignalRole.STORE
+      );
+
+      const names = clusterMetas.map(c => {
+        const prefix = c.meta.role === SignalRole.STORE ? 'Σ ' : c.meta.role === SignalRole.CONTEXT ? 'Ω ' : '';
+        return `${prefix}${c.name}`;
+      }).join(' ⟷ ');
 
       console.group(` %c${idx + 1}%c ${names}`, `background: ${THEME.problem}; color: white; border-radius: 50%; padding: 0 5px;`, "font-family: monospace; font-weight: bold;");
 
       if (hasCtx) {
-        console.log(`%cDiagnosis: Context Mirroring. Local state is shadowing global context.`, `color: ${THEME.problem};`);
-        console.log(`%cSolution: Use context directly to avoid state drift.`, STYLES.actionLabel);
+        const hasStore = clusterMetas.some(c => c.meta.role === SignalRole.STORE);
+        const sourceType = hasStore ? 'External Store' : 'global context';
+        console.log(`%cDiagnosis: ${hasStore ? 'Store' : 'Context'} Mirroring. Local state is shadowing ${sourceType}.`, `color: ${THEME.problem};`);
+        console.log(`%cSolution: Use ${sourceType} directly to avoid state drift.`, STYLES.actionLabel);
       } else {
         const boolKeywords = ['is', 'has', 'can', 'should', 'loading', 'success', 'error', 'active', 'enabled', 'open', 'visible'];
         const boolCount = clusterMetas.filter(c =>
@@ -292,14 +300,20 @@ export const displayRedundancyAlert = (labelA: string, metaA: RingBufferMetadata
   if (!isWeb || !shouldLog(`redundant-${labelA}-${labelB}`)) return;
   const infoA = parseLabel(labelA);
   const infoB = parseLabel(labelB);
-  const isContextMirror = (metaA.role === SignalRole.LOCAL && metaB.role === SignalRole.CONTEXT) || (metaB.role === SignalRole.LOCAL && metaA.role === SignalRole.CONTEXT);
+  const isContextMirror = (metaA.role === SignalRole.LOCAL && metaB.role === SignalRole.CONTEXT) ||
+    (metaB.role === SignalRole.LOCAL && metaA.role === SignalRole.CONTEXT);
 
-  console.group(`%c ♊ BASIS | ${isContextMirror ? 'CONTEXT MIRRORING' : 'DUPLICATE STATE'} `, STYLES.headerProblem);
+  const isStoreMirror = (metaA.role === SignalRole.LOCAL && metaB.role === SignalRole.STORE) ||
+    (metaB.role === SignalRole.LOCAL && metaA.role === SignalRole.STORE);
+
+  const alertType = isContextMirror ? 'CONTEXT MIRRORING' : isStoreMirror ? 'STORE MIRRORING' : 'DUPLICATE STATE';
+  console.group(`%c ♊ BASIS | ${alertType} `, STYLES.headerProblem);
   console.log(`%c📍 Location: %c${infoA.file}`, STYLES.bold, STYLES.location);
   console.log(`%cIssue:%c ${infoA.name} and ${infoB.name} are synchronized (${(sim * 100).toFixed(0)}%).`, STYLES.bold, "");
 
-  if (isContextMirror) {
-    console.log(`%cFix:%c Local state is 'shadowing' Global Context. Delete the local state and consume the %cContext%c value directly.`,
+  if (isContextMirror || isStoreMirror) {
+    const sourceType = isStoreMirror ? 'External Store' : 'Global Context';
+    console.log(`%cFix:%c Local state is 'shadowing' ${sourceType}. Delete the local state and consume the %c${sourceType}%c value directly.`,
       STYLES.bold, "",
       STYLES.actionPill, ""
     );
@@ -326,11 +340,15 @@ export const displayCausalHint = (targetLabel: string, targetMeta: RingBufferMet
   if (!isWeb || !shouldLog(`causal-${sourceLabel}-${targetLabel}`)) return;
   const target = parseLabel(targetLabel);
   const source = parseLabel(sourceLabel);
-  const isCtx = sourceMeta.role === SignalRole.CONTEXT;
+  const headerType = sourceMeta.role === SignalRole.CONTEXT
+    ? 'CONTEXT SYNC LEAK'
+    : sourceMeta.role === SignalRole.STORE
+      ? 'STORE SYNC LEAK'
+      : 'DOUBLE RENDER';
 
   const isEffect = sourceLabel.includes('effect') || sourceLabel.includes('useLayoutEffect');
 
-  console.groupCollapsed(`%c ⚡ BASIS | ${isCtx ? 'CONTEXT SYNC LEAK' : 'DOUBLE RENDER'} `, STYLES.headerProblem);
+  console.groupCollapsed(`%c ⚡ BASIS | ${headerType} `, STYLES.headerProblem);
   console.log(`%c📍 Location: %c${target.file}`, STYLES.bold, STYLES.location);
   console.log(`%cIssue:%c ${source.name} triggers ${target.name} in separate frames.`, STYLES.bold, "");
 

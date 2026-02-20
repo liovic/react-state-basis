@@ -4,6 +4,7 @@ export enum SignalRole {
   LOCAL = 'local',
   CONTEXT = 'context',
   PROJECTION = 'proj',
+  STORE = 'store',
 }
 
 export interface StateOptions { 

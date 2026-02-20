@@ -27,7 +27,14 @@ export const BasisHUD: React.FC = () => {
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
-      const entries = Array.from(history.entries());
+      const entries = Array.from(history.entries()).sort((a, b) => {
+        const roleOrder = (role: string) => {
+          if (role === 'context') return 0;
+          if (role === 'store') return 1;
+          return 2;
+        };
+        return roleOrder(a[1].role) - roleOrder(b[1].role);
+      });
       const dpr = window.devicePixelRatio || 1;
       const rawWidth = DIM.WINDOW_SIZE * DIM.COL_WIDTH + DIM.LABEL_WIDTH + DIM.PADDING * 2;
       const rawHeight = Math.max(entries.length * DIM.ROW_HEIGHT + DIM.PADDING * 2, 80);
@@ -102,7 +109,7 @@ function renderMatrix(ctx: CanvasRenderingContext2D, entries: [string, any][]) {
   let rowIndex = 0;
   for (const [label, meta] of entries) {
     const y = rowIndex * rowH + pad;
-    const isContext = meta.role === 'context';
+    const isContext = meta.role === 'context' || meta.role === 'store';
     const isRedundant = !isContext && redundantLabels.has(label);
 
     const { buffer, head } = meta;
@@ -126,7 +133,8 @@ function renderMatrix(ctx: CanvasRenderingContext2D, entries: [string, any][]) {
     const textX = (L * colW) + pad + 10;
 
     ctx.fillStyle = isContext ? THEME.header : (isRedundant ? THEME.error : THEME.text);
-    ctx.fillText((isContext ? "Ω " : isRedundant ? "! " : "") + stateName, textX, y + 9);
+    const prefix = meta.role === 'store' ? "Σ " : isContext ? "Ω " : isRedundant ? "! " : "";
+    ctx.fillText(prefix + stateName, textX, y + 9);
 
     rowIndex++;
   }
@@ -153,6 +161,6 @@ const HUDHeader: React.FC<{ isExpanded: boolean }> = ({ isExpanded }) => (
     }}
   >
     <span>{isExpanded ? 'STATE BASIS MATRIX' : '📐 BASIS ACTIVE'}</span>
-    {isExpanded && <span style={{ opacity: 0.8, fontSize: '9px' }}>v0.5.x</span>}
+    {isExpanded && <span style={{ opacity: 0.8, fontSize: '9px' }}>v0.6.x</span>}
   </div>
 );

@@ -1,3 +1,5 @@
+// tsup.config.ts
+
 import { defineConfig } from 'tsup';
 
 export default defineConfig([
@@ -8,7 +10,9 @@ export default defineConfig([
       'src/vite-plugin.ts',
       'src/jsx-runtime.ts',
       'src/jsx-dev-runtime.ts',
-      'src/client.ts' 
+      'src/client.ts',
+      'src/integrations/zustand.ts',
+      'src/integrations/zustand-production.ts'
     ],
     format: ['cjs', 'esm'],
     dts: true,
