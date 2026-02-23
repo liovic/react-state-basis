@@ -137,6 +137,38 @@ Basis is verified against industry-standard codebases to ensure high-fidelity de
 
 ---
 
+## Integrations
+
+### Zustand
+
+Wrap your store with `basisLogger` to give Basis visibility into external
+store updates. Store signals appear as Σ in the HUD and health report.
+
+```typescript
+import { create } from 'zustand';
+import { basisLogger } from 'react-state-basis/zustand';
+
+export const useStore = create(
+  basisLogger((set) => ({
+    theme: 'light',
+    toggleTheme: () => set((state) => ({ 
+      theme: state.theme === 'light' ? 'dark' : 'light' 
+    })),
+  }), 'MyStore')
+);
+```
+
+This enables detection of **Store Mirroring**, **Store Sync Leaks**, and
+**Global Event Fragmentation** across React and Zustand state simultaneously.
+
+[See full Zustand example →](./examples/basis-zustand/)
+
+### More integrations coming
+
+Planned: XState, React Qery, Redux Toolkit. Community PRs welcome.
+
+---
+
 ## Performance & Privacy
 
 **Development:** <1ms overhead per update cycle, zero heap growth  

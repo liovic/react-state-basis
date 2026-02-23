@@ -26,6 +26,18 @@
       "import": "./dist/client.mjs",
       "require": "./dist/client.js"
     },
+    "./zustand": {
+      "types": "./dist/integrations/zustand.d.ts",
+      "development": {
+        "import": "./dist/integrations/zustand.mjs",
+        "require": "./dist/integrations/zustand.js"
+      },
+      "production": {
+        "import": "./dist/integrations/zustand-production.mjs",
+        "require": "./dist/integrations/zustand-production.js"
+      },
+      "default": "./dist/integrations/zustand-production.mjs"
+    },
     "./vite": {
       "types": "./dist/vite-plugin.d.ts",
       "import": "./dist/vite-plugin.mjs",
@@ -74,7 +86,13 @@
     "url": "https://github.com/liovic/react-state-basis/issues"
   },
   "peerDependencies": {
-    "react": ">=16.8"
+    "react": ">=16.8",
+    "zustand": ">=4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "zustand": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@babel/core": "^7.26.0",
@@ -90,6 +108,7 @@
     "react-dom": "^19.2.3",
     "tsup": "^8.3.5",
     "typescript": "^5.7.0",
-    "vitest": "^4.0.16"
+    "vitest": "^4.0.16",
+    "zustand": "^5.0.11"
   }
 }

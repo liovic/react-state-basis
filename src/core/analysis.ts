@@ -80,6 +80,9 @@ const pushViolation = (
   }
 };
 
+const isGlobalSource = (role: SignalRole): boolean =>
+  role === SignalRole.CONTEXT || role === SignalRole.STORE;
+
 const detectRedundancy = (
   entryA: Entry,
   entryB: Entry,
@@ -90,15 +93,15 @@ const detectRedundancy = (
   const roleA = entryA.meta.role;
   const roleB = entryB.meta.role;
 
-  if (roleA === SignalRole.CONTEXT && roleB === SignalRole.CONTEXT) return;
+  if (isGlobalSource(roleA) && isGlobalSource(roleB)) return;
   if (entryA.meta.density < 2 || entryB.meta.density < 2) return;
 
-  if (roleA === SignalRole.LOCAL && roleB === SignalRole.CONTEXT) {
+  if (roleA === SignalRole.LOCAL && isGlobalSource(roleB)) {
     redundantSet.add(entryA.label);
     pushViolation(violationMap, entryB.label, { type: 'context_mirror', target: entryA.label, similarity: similarities.max });
     UI.displayRedundancyAlert(entryA.label, entryA.meta, entryB.label, entryB.meta, similarities.max);
   }
-  else if (roleA === SignalRole.CONTEXT && roleB === SignalRole.LOCAL) {
+  else if (isGlobalSource(roleA) && roleB === SignalRole.LOCAL) {
     redundantSet.add(entryB.label);
     pushViolation(violationMap, entryA.label, { type: 'context_mirror', target: entryB.label, similarity: similarities.max });
     UI.displayRedundancyAlert(entryB.label, entryB.meta, entryA.label, entryA.meta, similarities.max);
@@ -123,7 +126,7 @@ const detectCausalLeak = (
 
   if (similarities.max - similarities.sync < CAUSAL_MARGIN) return;
 
-const addLeak = (source: string, target: string) => {
+  const addLeak = (source: string, target: string) => {
     if (isEventDriven(target, graph)) return;
 
     if (!violationMap.has(source)) {
