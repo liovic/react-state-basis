@@ -53,7 +53,11 @@ describe('Temporal Lead-Lag Logic (v0.6.x)', () => {
         expect(spy).toHaveBeenCalledWith(
             'a', expect.any(Object),
             'b', expect.any(Object),
-            expect.any(Number)
+            expect.objectContaining({
+                kSync: expect.any(Number),
+                densityA: expect.any(Number),
+                densityB: expect.any(Number),
+            })
         );
     });
 

@@ -7,18 +7,18 @@ export enum SignalRole {
   STORE = 'store',
 }
 
-export interface StateOptions { 
-  label?: string; 
-  suppressAll?: boolean; 
-  role?: SignalRole; 
+export interface StateOptions {
+  label?: string;
+  suppressAll?: boolean;
+  role?: SignalRole;
 }
 
-export interface RingBufferMetadata { 
-  buffer: Uint8Array; 
-  head: number; 
-  density: number; 
+export interface RingBufferMetadata {
+  buffer: Uint8Array;
+  head: number;
+  density: number;
   options: StateOptions;
-  role: SignalRole; 
+  role: SignalRole;
 }
 
 export interface Entry {
@@ -27,10 +27,17 @@ export interface Entry {
   isVolatile: boolean;
 }
 
+export interface OverlapStats {
+  kSync: number;
+  densityA: number;
+  densityB: number;
+  cosine?: number;
+}
+
 export interface ViolationDetail {
   type: 'causal_leak' | 'context_mirror' | 'duplicate_state';
   target: string;
-  similarity?: number;
+  overlap?: OverlapStats;
 }
 
 export interface RankedIssue {
@@ -38,14 +45,14 @@ export interface RankedIssue {
   metric: 'influence' | 'density' | 'redundancy';
   score: number;
   reason: string;
-  violations: ViolationDetail[]; 
+  violations: ViolationDetail[];
 }
 
-export interface PerformanceMetrics { 
-  lastAnalysisTimeMs: number; 
-  comparisonCount: number; 
+export interface PerformanceMetrics {
+  lastAnalysisTimeMs: number;
+  comparisonCount: number;
   lastAnalysisTimestamp: number;
-  systemEntropy: number; 
+  systemEntropy: number;
 }
 
 export interface BasisGraphNode {
@@ -93,6 +100,6 @@ export interface BasisEngineState {
   alertCount: number;
   loopCounters: Map<string, number>;
   lastCleanup: number;
-  graph: Map<string, Map<string, number>>; 
+  graph: Map<string, Map<string, number>>;
   violationMap: Map<string, ViolationDetail[]>;
 }

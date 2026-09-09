@@ -72,7 +72,11 @@ describe('Engine Logic: analyzeBasis (v0.6.x Graph Era)', () => {
     expect(spy).toHaveBeenCalledWith(
       'Local_U', expect.anything(),
       'Global_W', expect.anything(),
-      expect.any(Number)
+      expect.objectContaining({
+        kSync: expect.any(Number),
+        densityA: expect.any(Number),
+        densityB: expect.any(Number),
+      })
     );
   });
 

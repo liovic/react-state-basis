@@ -50,7 +50,7 @@ describe('Health Reports & Clustering (v0.6.x)', () => {
 
         // Check 2: Should trigger the specific diagnosis text in the Sync Issues section
         const logTexts = logSpy.mock.calls.map(call => call[0]).join(' ');
-        expect(logTexts).toContain('Context Mirroring');
+        expect(logTexts).toContain('following context');
     });
 
     it('DIAGNOSIS: identifies Boolean Explosion in the report', async () => {
@@ -72,7 +72,7 @@ describe('Health Reports & Clustering (v0.6.x)', () => {
 
         // Check if ANY log call contains "Boolean Explosion"
         const logTexts = logSpy.mock.calls.map(call => call[0]).join(' ');
-        expect(logTexts).toContain('Boolean Explosion');
+        expect(logTexts).toContain('These flags move together');
     });
 
     it('identifies independent vs clustered variables', async () => {
