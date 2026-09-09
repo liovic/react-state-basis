@@ -26,7 +26,7 @@ describe('Basis System Integration', () => {
     }
 
     expect(groupSpy).toHaveBeenCalledWith(
-      expect.stringContaining('DUPLICATE STATE'),
+      expect.stringContaining('hooks moving together'),
       expect.any(String)
     );
     groupSpy.mockRestore();

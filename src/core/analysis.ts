@@ -2,7 +2,7 @@
 
 import * as UI from './logger';
 import { countOverlapsCircular, cosineFromOverlap, isSignificantOverlap } from './math';
-import { SignalRole, Entry, ViolationDetail } from './types';
+import { SignalRole, Entry, ViolationDetail, OverlapStats } from './types';
 import { isSameField } from './label';
 
 interface Similarities {
@@ -56,6 +56,13 @@ const calculateAllSimilarities = (entryA: Entry, entryB: Entry): Similarities =>
   };
 };
 
+const overlapFrom = (s: Similarities): OverlapStats => ({
+  kSync: s.kSync,
+  densityA: s.densityA,
+  densityB: s.densityB,
+  cosine: s.sync,
+});
+
 const shouldSkipComparison = (
   entryA: Entry,
   entryB: Entry,
@@ -100,22 +107,22 @@ const detectRedundancy = (
   if (isGlobalSource(roleA) && isGlobalSource(roleB)) return;
   if (similarities.densityA < 2 || similarities.densityB < 2) return;
 
-  const score = similarities.sync;
+  const overlap = overlapFrom(similarities);
 
   if (roleA === SignalRole.LOCAL && isGlobalSource(roleB)) {
     redundantSet.add(entryA.label);
-    pushViolation(violationMap, entryB.label, { type: 'context_mirror', target: entryA.label, similarity: score });
-    UI.displayRedundancyAlert(entryA.label, entryA.meta, entryB.label, entryB.meta, score);
+    pushViolation(violationMap, entryB.label, { type: 'context_mirror', target: entryA.label, overlap });
+    UI.displayRedundancyAlert(entryA.label, entryA.meta, entryB.label, entryB.meta, overlap);
   } else if (isGlobalSource(roleA) && roleB === SignalRole.LOCAL) {
     redundantSet.add(entryB.label);
-    pushViolation(violationMap, entryA.label, { type: 'context_mirror', target: entryB.label, similarity: score });
-    UI.displayRedundancyAlert(entryB.label, entryB.meta, entryA.label, entryA.meta, score);
+    pushViolation(violationMap, entryA.label, { type: 'context_mirror', target: entryB.label, overlap });
+    UI.displayRedundancyAlert(entryB.label, entryB.meta, entryA.label, entryA.meta, overlap);
   } else if (roleA === SignalRole.LOCAL && roleB === SignalRole.LOCAL) {
     redundantSet.add(entryA.label);
     redundantSet.add(entryB.label);
-    pushViolation(violationMap, entryA.label, { type: 'duplicate_state', target: entryB.label, similarity: score });
-    pushViolation(violationMap, entryB.label, { type: 'duplicate_state', target: entryA.label, similarity: score });
-    UI.displayRedundancyAlert(entryA.label, entryA.meta, entryB.label, entryB.meta, score);
+    pushViolation(violationMap, entryA.label, { type: 'duplicate_state', target: entryB.label, overlap });
+    pushViolation(violationMap, entryB.label, { type: 'duplicate_state', target: entryA.label, overlap });
+    UI.displayRedundancyAlert(entryA.label, entryA.meta, entryB.label, entryB.meta, overlap);
   }
 };
 
@@ -138,7 +145,6 @@ const detectCausalLeak = (
     UI.displayCausalHint(target, targetEntry.meta, source, sourceEntry.meta);
   };
 
-  // Period-2 trains have equal lags. Still a lag vs sync; keep A→B like the old max check.
   if (similarities.kALeadsB >= similarities.kBLeadsA) {
     addLeak(entryA.label, entryB.label);
   } else {

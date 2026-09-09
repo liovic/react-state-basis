@@ -168,7 +168,7 @@ A detected pattern is **not automatically a bug**, and Basis does not know the i
 
 Use the results as prompts for investigation rather than as rules for how React code should be written.
 
-[See examples and possible fixes →](https://github.com/liovic/react-state-basis/wiki/The-Forensic-Catalog)
+[See examples and possible fixes →](https://github.com/liovic/react-state-basis/wiki/Detected-patterns)
 
 ---
 
@@ -338,7 +338,7 @@ Basis is designed primarily as a development-time diagnostic tool.
 
 Actual overhead depends on the application and instrumentation configuration.
 
-[See benchmarks →](https://github.com/liovic/react-state-basis/wiki/Performance-Forensics)
+[See benchmarks →](https://github.com/liovic/react-state-basis/wiki/Performance)
 
 ---
 

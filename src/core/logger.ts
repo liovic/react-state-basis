@@ -2,11 +2,20 @@
 
 import { countOverlapsCircular, isSignificantOverlap } from "./math";
 import { identifyTopIssues } from "./ranker";
-import { RingBufferMetadata, SignalRole, RankedIssue, ViolationDetail, BasisGraphJSON, BasisGraphNode, BasisGraphEdge } from "./types";
+import {
+  RingBufferMetadata,
+  SignalRole,
+  RankedIssue,
+  ViolationDetail,
+  BasisGraphJSON,
+  BasisGraphNode,
+  BasisGraphEdge,
+  OverlapStats,
+} from "./types";
 import { instance } from "../engine";
 import { parseLabel, isEffectLabel } from "./label";
 
-const isWeb = typeof window !== 'undefined' && typeof window.document !== 'undefined';
+const isWeb = typeof window !== "undefined" && typeof window.document !== "undefined";
 const LAST_LOG_TIMES = new Map<string, number>();
 const LOG_COOLDOWN = 3000;
 
@@ -31,7 +40,8 @@ const STYLES = {
   location: `color: ${THEME.context}; font-family: monospace; font-weight: bold;`,
   subText: `color: ${THEME.muted}; font-size: 11px;`,
   bold: "font-weight: bold;",
-  label: "background: #dfe6e9; color: #2d3436; padding: 0 4px; border-radius: 3px; font-family: monospace; font-weight: bold; border: 1px solid #b2bec3;",
+  label:
+    "background: #dfe6e9; color: #2d3436; padding: 0 4px; border-radius: 3px; font-family: monospace; font-weight: bold; border: 1px solid #b2bec3;",
 };
 
 const shouldLog = (key: string) => {
@@ -47,54 +57,55 @@ const shouldLog = (key: string) => {
 const isBooleanLike = (name: string) =>
   /^(is|has|can|should|did|will|show|hide)(?=[A-Z_])/.test(name);
 
+const displayName = (raw: string) => {
+  const { name } = parseLabel(raw);
+  return name.replace(/:\d+$/, "");
+};
+
 const areSyncSignificant = (metaA: RingBufferMetadata, metaB: RingBufferMetadata): boolean => {
   const { kSync, densityA, densityB } = countOverlapsCircular(
-    metaA.buffer, metaA.head,
-    metaB.buffer, metaB.head
+    metaA.buffer,
+    metaA.head,
+    metaB.buffer,
+    metaB.head
   );
   return isSignificantOverlap(kSync, densityA, densityB, metaA.buffer.length);
 };
 
 const getSuggestedFix = (issue: RankedIssue, info: { name: string }): string => {
-  if (issue.label.includes('Global Event')) {
-    return `These variables update together but live in different hooks/files. Consolidate them into a single %cuseReducer%c or atomic store update.`;
+  if (issue.label.includes("Global Event")) {
+    return `One interaction is updating state in several places. If that is really one transition, put it in one %cstore / reducer%c. If it is intentional, ignore this.`;
   }
 
   const violations = issue.violations || [];
-  const leaks = violations.filter(v => v.type === 'causal_leak');
-  const mirrors = violations.filter(v => v.type === 'context_mirror');
-  const duplicates = violations.filter(v => v.type === 'duplicate_state');
+  const leaks = violations.filter((v) => v.type === "causal_leak");
+  const mirrors = violations.filter((v) => v.type === "context_mirror");
+  const duplicates = violations.filter((v) => v.type === "duplicate_state");
 
   if (mirrors.length > 0) {
-    return `Local state is 'shadowing' Global Context. This creates two sources of truth. ` +
-      `Delete the local state and consume the %cContext%c value directly.`;
+    return `A local hook is only tracking context or a store. If it is not a draft, delete it and read the %ccontext / store%c in render.`;
   }
 
   if (leaks.length > 0) {
-    const targetName = parseLabel(leaks[0].target).name;
-    if (issue.label.includes('effect')) {
-      return `This Effect triggers a synchronous re-render of ${targetName}. ` +
-        `Calculate ${targetName} during the render phase (Derived State) or wrap in %cuseMemo%c if expensive.`;
+    const targetName = displayName(leaks[0].target);
+    if (issue.label.includes("effect")) {
+      return `An effect is calling setState on ${targetName}, which paints again. If you can compute ${targetName} while rendering, drop the %ceffect%c.`;
     }
-    return `State cascading detected. ${info.name} triggers ${targetName} in a separate frame. ` +
-      `Merge them into one object to update simultaneously.`;
+    return `${info.name} updates, then ${targetName} updates on the next frame. If they are one fact, write them in the same %csetState%c.`;
   }
 
   if (duplicates.length > 0) {
     if (isBooleanLike(info.name)) {
-      return `Boolean Explosion detected. Multiple flags are toggling in sync. ` +
-        `Replace impossible states with a single %cstatus%c string ('idle' | 'loading' | 'success').`;
+      return `Several flags move together. One %cstatus%c value avoids impossible combinations.`;
     }
-    return `Redundant State detected. This variable carries no unique information. ` +
-      `Derive it from the source variable during render, or use %cuseMemo%c to cache the result.`;
+    return `These hooks move together. If one is just the other in another shape, compute it while %crendering%c.`;
   }
 
-  if (issue.metric === 'density') {
-    return `High-Frequency Update. This variable updates faster than the frame rate. ` +
-      `Apply %cdebounce%c or move to a Ref to unblock the main thread.`;
+  if (issue.metric === "density") {
+    return `This hook updates faster than a frame. %cDebounce%c it or keep it in a ref if the UI does not need every pulse.`;
   }
 
-  return `Check the dependency chain of ${info.name}.`;
+  return `Inspect ${info.name} and what updates with it.`;
 };
 
 export const displayHealthReport = (
@@ -107,74 +118,58 @@ export const displayHealthReport = (
 
   const topIssues = identifyTopIssues(instance.graph, history, instance.redundantLabels, violationMap);
 
-  console.group(`%c 📊 BASIS | ARCHITECTURAL HEALTH REPORT `, STYLES.headerIdentity);
+  console.group(`%c BASIS | report `, STYLES.headerIdentity);
 
   if (topIssues.length > 0) {
-    console.log(`%c🎯 REFACTOR PRIORITIES %c(PRIME MOVERS)`,
-      `font-weight: bold; color: ${THEME.identity}; margin-top: 10px;`,
-      `font-weight: normal; color: ${THEME.muted}; font-style: italic;`
-    );
+    console.log(`%cStart here`, `font-weight: bold; color: ${THEME.identity}; margin-top: 10px;`);
 
     topIssues.forEach((issue, idx) => {
       const info = parseLabel(issue.label);
-      const icon = issue.metric === 'influence' ? '⚡' : '📈';
+      const icon = issue.metric === "influence" ? "→" : "•";
       const pColor = idx === 0 ? THEME.problem : idx === 1 ? THEME.solution : THEME.identity;
 
-      let displayName = info.name;
-      let displayFile = info.file;
-
-      if (issue.label.includes('Global Event')) {
-        displayName = info.name;
-        displayFile = info.file;
-      }
-
       console.group(
-        ` %c${idx + 1}%c ${icon} ${displayName} %c(${displayFile})`,
-        `background: ${pColor}; color: ${idx === 1 ? 'black' : 'white'}; border-radius: 50%; padding: 0 5px;`,
+        ` %c${idx + 1}%c ${icon} ${displayName(issue.label)} %c(${info.file})`,
+        `background: ${pColor}; color: ${idx === 1 ? "black" : "white"}; border-radius: 50%; padding: 0 5px;`,
         "font-family: monospace; font-weight: 700;",
-        `color: ${THEME.muted}; font-size: 10px; font-weight: normal; font-style: italic;`
+        `color: ${THEME.muted}; font-size: 10px; font-weight: normal;`
       );
 
-      console.log(`%c${issue.reason}`, `color: ${THEME.muted}; font-style: italic;`);
+      console.log(`%c${issue.reason}`, `color: ${THEME.muted};`);
 
       if (issue.violations.length > 0) {
         const byFile = new Map<string, string[]>();
 
-        issue.violations.forEach(v => {
-          if (issue.label.includes('Global Event') && v.type === 'context_mirror') return;
+        issue.violations.forEach((v) => {
+          if (issue.label.includes("Global Event") && v.type === "context_mirror") return;
           const { file, name } = parseLabel(v.target);
           if (!byFile.has(file)) byFile.set(file, []);
-          byFile.get(file)!.push(name);
+          byFile.get(file)!.push(name.replace(/:\d+$/, ""));
         });
 
         const impactParts: string[] = [];
         byFile.forEach((vars, file) => {
-          const varList = vars.join(', ');
-          impactParts.push(`${file} (${varList})`);
+          impactParts.push(`${file} (${vars.join(", ")})`);
         });
 
         if (impactParts.length > 0) {
-          console.log(`%cImpacts: %c${impactParts.join(' + ')}`, STYLES.impactLabel, "");
+          console.log(`%cAlso updates: %c${impactParts.join(" · ")}`, STYLES.impactLabel, "");
         }
       }
 
       const fix = getSuggestedFix(issue, info);
-      const fixParts = fix.split('%c');
+      const fixParts = fix.split("%c");
 
       if (fixParts.length === 3) {
         console.log(
-          `%cSolution: %c${fixParts[0]}%c${fixParts[1]}%c${fixParts[2]}`,
+          `%cTry: %c${fixParts[0]}%c${fixParts[1]}%c${fixParts[2]}`,
           STYLES.actionLabel,
           "",
           STYLES.actionPill,
           ""
         );
       } else {
-        console.log(
-          `%cSolution: %c${fix}`,
-          STYLES.actionLabel,
-          ""
-        );
+        console.log(`%cTry: %c${fix}`, STYLES.actionLabel, "");
       }
 
       console.groupEnd();
@@ -197,148 +192,226 @@ export const displayHealthReport = (
       currentCluster.push(labelB);
       processed.add(labelB);
     });
-    if (currentCluster.length > 1) clusters.push(currentCluster); else independentCount++;
+    if (currentCluster.length > 1) clusters.push(currentCluster);
+    else independentCount++;
   });
 
   const totalVars = entries.length;
-  const redundancyScore = ((independentCount + clusters.length) / totalVars) * 100;
 
-  let internalEdges = 0;
-  instance.graph.forEach((targets, source) => {
-    if (source.startsWith('Event_Tick_')) return;
-    internalEdges += targets.size;
-  });
-
-  const causalPenalty = (internalEdges / totalVars) * 100;
-
-  let healthScore = redundancyScore - causalPenalty;
-  if (healthScore < 0) healthScore = 0;
-
-  const scoreColor = healthScore > 85 ? THEME.success : THEME.problem;
-
-  console.log(`%cSystem Efficiency: %c${healthScore.toFixed(1)}%`,
-    STYLES.bold, `color: ${scoreColor}; font-weight: bold;`
+  console.log(
+    `%c${independentCount + clusters.length} of ${totalVars} instrumented hooks look independent in this window.`,
+    STYLES.subText
   );
-  console.log(`%cSources of Truth: ${independentCount + clusters.length}/${totalVars} | Causal Leaks: ${internalEdges}`, STYLES.subText);
 
   if (clusters.length > 0) {
-    console.log(`%cDetected ${clusters.length} Sync Issues:`, `font-weight: bold; color: ${THEME.problem}; margin-top: 10px;`);
+    console.log(
+      `%c${clusters.length} group${clusters.length === 1 ? "" : "s"} that keep updating together:`,
+      `font-weight: bold; color: ${THEME.problem}; margin-top: 10px;`
+    );
 
     clusters.forEach((cluster, idx) => {
-      const clusterMetas = cluster.map(l => ({
+      const clusterMetas = cluster.map((l) => ({
         label: l,
         meta: history.get(l)!,
-        name: parseLabel(l).name
+        name: displayName(l),
       }));
-      const hasCtx = clusterMetas.some(c =>
-        c.meta.role === SignalRole.CONTEXT || c.meta.role === SignalRole.STORE
+      const hasCtx = clusterMetas.some(
+        (c) => c.meta.role === SignalRole.CONTEXT || c.meta.role === SignalRole.STORE
       );
 
-      const names = clusterMetas.map(c => {
-        const prefix = c.meta.role === SignalRole.STORE ? 'Σ ' : c.meta.role === SignalRole.CONTEXT ? 'Ω ' : '';
-        return `${prefix}${c.name}`;
-      }).join(' ⟷ ');
+      const names = clusterMetas.map((c) => c.name).join(", ");
 
-      console.group(` %c${idx + 1}%c ${names}`, `background: ${THEME.problem}; color: white; border-radius: 50%; padding: 0 5px;`, "font-family: monospace; font-weight: bold;");
+      console.group(
+        ` %c${idx + 1}%c ${names}`,
+        `background: ${THEME.problem}; color: white; border-radius: 50%; padding: 0 5px;`,
+        "font-family: monospace; font-weight: bold;"
+      );
 
       if (hasCtx) {
-        const hasStore = clusterMetas.some(c => c.meta.role === SignalRole.STORE);
-        const sourceType = hasStore ? 'External Store' : 'global context';
-        console.log(`%cDiagnosis: ${hasStore ? 'Store' : 'Context'} Mirroring. Local state is shadowing ${sourceType}.`, `color: ${THEME.problem};`);
-        console.log(`%cSolution: Use ${sourceType} directly to avoid state drift.`, STYLES.actionLabel);
+        const hasStore = clusterMetas.some((c) => c.meta.role === SignalRole.STORE);
+        const sourceType = hasStore ? "a store" : "context";
+        console.log(`A local hook is only following ${sourceType}.`);
+        console.log(
+          `%cTry:%c Read ${sourceType} in render if the local value is not a draft.`,
+          STYLES.actionLabel,
+          ""
+        );
       } else {
-        const boolKeywords = ['is', 'has', 'can', 'should', 'loading', 'success', 'error', 'active', 'enabled', 'open', 'visible'];
-        const boolCount = clusterMetas.filter(c =>
-          boolKeywords.some(kw => c.name.toLowerCase().startsWith(kw))
+        const boolKeywords = [
+          "is",
+          "has",
+          "can",
+          "should",
+          "loading",
+          "success",
+          "error",
+          "active",
+          "enabled",
+          "open",
+          "visible",
+        ];
+        const boolCount = clusterMetas.filter((c) =>
+          boolKeywords.some((kw) => c.name.toLowerCase().startsWith(kw))
         ).length;
 
-        const isBoolExplosion = cluster.length > 2 && (boolCount / cluster.length) > 0.5;
-        if (isBoolExplosion) {
-          console.log(`%cDiagnosis:%c Boolean Explosion. Multiple booleans updating in sync.`, STYLES.bold, "");
-          console.log(`%cSolution:%c Combine into a single %cstatus%c string or a %creducer%c.`, STYLES.actionLabel, "", STYLES.actionPill, "", STYLES.actionPill, "");
+        if (cluster.length > 2 && boolCount / cluster.length > 0.5) {
+          console.log(`These flags move together.`);
+          console.log(
+            `%cTry:%c One %cstatus%c instead of several booleans.`,
+            STYLES.actionLabel,
+            "",
+            STYLES.actionPill,
+            ""
+          );
         } else if (cluster.length > 2) {
-          console.log(`%cDiagnosis:%c Sibling Updates. These states respond to the same event.`, STYLES.bold, "");
-          console.log(`%cSolution:%c This may be intentional. If not, consolidate into a %creducer%c.`, STYLES.actionLabel, "", STYLES.actionPill, "");
+          console.log(`These hooks move on the same frames. Often the same click or fetch.`);
+          console.log(
+            `%cTry:%c Leave it if that is intentional. Otherwise one %creducer%c.`,
+            STYLES.actionLabel,
+            "",
+            STYLES.actionPill,
+            ""
+          );
         } else {
-          console.log(`%cDiagnosis:%c Redundant State. Variables always change together.`, STYLES.bold, "");
-          console.log(`%cSolution:%c Derive one from the other via %cuseMemo%c.`, STYLES.actionLabel, "", STYLES.actionPill, "");
+          console.log(`These two hooks keep updating in the same frame.`);
+          console.log(
+            `%cTry:%c If one is derived, compute it while %crendering%c.`,
+            STYLES.actionLabel,
+            "",
+            STYLES.actionPill,
+            ""
+          );
         }
       }
       console.groupEnd();
     });
   } else {
-    console.log("%c✨ Your architecture is clean. No redundant state detected.", `color: ${THEME.success}; font-weight: bold;`);
+    console.log(
+      "%cNo hooks were updating in lockstep in this window.",
+      `color: ${THEME.success}; font-weight: bold;`
+    );
   }
   console.groupEnd();
 };
 
-export const displayRedundancyAlert = (labelA: string, metaA: RingBufferMetadata, labelB: string, metaB: RingBufferMetadata, sim: number) => {
+export const displayRedundancyAlert = (
+  labelA: string,
+  metaA: RingBufferMetadata,
+  labelB: string,
+  metaB: RingBufferMetadata,
+  overlap: OverlapStats
+) => {
   if (!isWeb || !shouldLog(`redundant-${labelA}-${labelB}`)) return;
+
   const infoA = parseLabel(labelA);
-  const infoB = parseLabel(labelB);
-  const isContextMirror = (metaA.role === SignalRole.LOCAL && metaB.role === SignalRole.CONTEXT) ||
+  const nameA = displayName(labelA);
+  const nameB = displayName(labelB);
+
+  const isContextMirror =
+    (metaA.role === SignalRole.LOCAL && metaB.role === SignalRole.CONTEXT) ||
     (metaB.role === SignalRole.LOCAL && metaA.role === SignalRole.CONTEXT);
 
-  const isStoreMirror = (metaA.role === SignalRole.LOCAL && metaB.role === SignalRole.STORE) ||
+  const isStoreMirror =
+    (metaA.role === SignalRole.LOCAL && metaB.role === SignalRole.STORE) ||
     (metaB.role === SignalRole.LOCAL && metaA.role === SignalRole.STORE);
 
-  const alertType = isContextMirror ? 'CONTEXT MIRRORING' : isStoreMirror ? 'STORE MIRRORING' : 'DUPLICATE STATE';
-  console.group(`%c ♊ BASIS | ${alertType} `, STYLES.headerProblem);
-  console.log(`%c📍 Location: %c${infoA.file}`, STYLES.bold, STYLES.location);
-  console.log(`%cIssue:%c ${infoA.name} and ${infoB.name} overlapped on ${(sim * 100).toFixed(0)}% of aligned updates.`, STYLES.bold, "");
+  const alertType = isContextMirror
+    ? "local state follows context"
+    : isStoreMirror
+      ? "local state follows a store"
+      : "hooks moving together";
+
+  const times = overlap.kSync === 1 ? "time" : "times";
+
+  console.group(`%c BASIS | ${alertType} `, STYLES.headerProblem);
+  console.log(`%c${infoA.file}`, STYLES.location);
+  console.log(
+    `%c${nameA}%c and %c${nameB}%c updated in the same frame ${overlap.kSync} ${times}.`,
+    STYLES.label,
+    "",
+    STYLES.label,
+    ""
+  );
 
   if (isContextMirror || isStoreMirror) {
-    const sourceType = isStoreMirror ? 'External Store' : 'Global Context';
-    console.log(`%cFix:%c Local state is 'shadowing' ${sourceType}. Delete the local state and consume the %c${sourceType}%c value directly.`,
-      STYLES.bold, "",
-      STYLES.actionPill, ""
+    const sourceType = isStoreMirror ? "store" : "context";
+    console.log(
+      `%cTry:%c If this is not a draft, delete the local hook and read the %c${sourceType}%c in render.`,
+      STYLES.bold,
+      "",
+      STYLES.actionPill,
+      ""
+    );
+  } else if (isBooleanLike(nameA) || isBooleanLike(nameB)) {
+    console.log(
+      `%cTry:%c One %cstatus%c instead of several flags.`,
+      STYLES.bold,
+      "",
+      STYLES.actionPill,
+      ""
     );
   } else {
-    if (isBooleanLike(infoA.name) || isBooleanLike(infoB.name)) {
-      console.log(`%cFix:%c Boolean Explosion detected. Merge flags into a single %cstatus%c string or %cuseReducer%c.`,
-        STYLES.bold, "",
-        STYLES.actionPill, "",
-        STYLES.actionPill, ""
-      );
-    } else {
-      console.log(`%cFix:%c Redundant State detected. Derive %c${infoB.name}%c from %c${infoA.name}%c during render, or use %cuseMemo%c.`,
-        STYLES.bold, "",
-        STYLES.label, "",
-        STYLES.label, "",
-        STYLES.actionPill, ""
-      );
-    }
+    console.log(
+      `%cTry:%c If %c${nameB}%c is just %c${nameA}%c in another shape, compute it while rendering.`,
+      STYLES.bold,
+      "",
+      STYLES.label,
+      "",
+      STYLES.label,
+      ""
+    );
   }
   console.groupEnd();
 };
 
-export const displayCausalHint = (targetLabel: string, targetMeta: RingBufferMetadata, sourceLabel: string, sourceMeta: RingBufferMetadata) => {
+export const displayCausalHint = (
+  targetLabel: string,
+  _targetMeta: RingBufferMetadata,
+  sourceLabel: string,
+  sourceMeta: RingBufferMetadata
+) => {
   if (!isWeb || !shouldLog(`causal-${sourceLabel}-${targetLabel}`)) return;
+
   const target = parseLabel(targetLabel);
-  const source = parseLabel(sourceLabel);
-  const headerType = sourceMeta.role === SignalRole.CONTEXT
-    ? 'CONTEXT SYNC LEAK'
-    : sourceMeta.role === SignalRole.STORE
-      ? 'STORE SYNC LEAK'
-      : 'DOUBLE RENDER';
+  const sourceName = displayName(sourceLabel);
+  const targetName = displayName(targetLabel);
 
-  const isEffect = sourceLabel.includes('effect') || sourceLabel.includes('useLayoutEffect');
+  const headerType =
+    sourceMeta.role === SignalRole.CONTEXT
+      ? "extra render from context"
+      : sourceMeta.role === SignalRole.STORE
+        ? "extra render from a store"
+        : "extra render";
 
-  console.groupCollapsed(`%c ⚡ BASIS | ${headerType} `, STYLES.headerProblem);
-  console.log(`%c📍 Location: %c${target.file}`, STYLES.bold, STYLES.location);
-  console.log(`%cIssue:%c ${source.name} triggers ${target.name} in separate frames.`, STYLES.bold, "");
+  const isEffect = sourceLabel.includes("effect") || sourceLabel.includes("useLayoutEffect");
+
+  console.groupCollapsed(`%c BASIS | ${headerType} `, STYLES.headerProblem);
+  console.log(`%c${target.file}`, STYLES.location);
+  console.log(
+    `%c${sourceName}%c updates %c${targetName}%c on the next frame.`,
+    STYLES.label,
+    "",
+    STYLES.label,
+    ""
+  );
 
   if (isEffect) {
-    console.log(`%cFix:%c Derive %c${target.name}%c during the render phase (remove effect) or wrap in %cuseMemo%c.`,
-      STYLES.bold, "",
-      STYLES.label, "",
-      STYLES.actionPill, ""
+    console.log(
+      `%cTry:%c If %c${targetName}%c can be computed while rendering, drop the extra setState.`,
+      STYLES.bold,
+      "",
+      STYLES.label,
+      ""
     );
   } else {
-    console.log(`%cFix:%c Merge %c${target.name}%c with %c${source.name}%c into a single state update.`,
-      STYLES.bold, "",
-      STYLES.label, "",
-      STYLES.label, ""
+    console.log(
+      `%cTry:%c Write %c${targetName}%c in the same update as %c${sourceName}%c if they are one fact.`,
+      STYLES.bold,
+      "",
+      STYLES.label,
+      "",
+      STYLES.label,
+      ""
     );
   }
   console.groupEnd();
@@ -354,12 +427,12 @@ const formatHook = (raw: string): string => {
   const { hook } = splitHookLine(raw);
   if (!isEffectLabel(hook)) return hook;
   const lineMatch = hook.match(/L(\d+)$/);
-  return lineMatch ? `effect @ L${lineMatch[1]}` : 'effect (anonymous)';
+  return lineMatch ? `effect @ L${lineMatch[1]}` : "effect (anonymous)";
 };
 
-const formatNode = (node?: BasisGraphNode, fallbackId = '?'): string => {
+const formatNode = (node?: BasisGraphNode, fallbackId = "?"): string => {
   if (!node) return fallbackId;
-  if (node.role === 'event') return 'Event';
+  if (node.role === "event") return "Event";
   const hook = formatHook(node.name || node.id);
   if (node.file && hook) return `${node.file} → ${hook}`;
   return hook || node.id;
@@ -369,16 +442,16 @@ export const displayGraphReport = (graph: BasisGraphJSON) => {
   if (!isWeb) return;
   if (graph.nodes.length === 0) {
     console.log(
-      `%c 📊 BASIS | CAUSAL GRAPH %c(no data yet)`,
+      `%c BASIS | update graph %c(nothing recorded yet)`,
       STYLES.headerIdentity,
       `color: ${THEME.muted}; font-style: italic;`
     );
     return;
   }
 
-  const nodeById = new Map(graph.nodes.map(n => [n.id, n]));
+  const nodeById = new Map(graph.nodes.map((n) => [n.id, n]));
   const outgoing = new Map<string, BasisGraphEdge[]>();
-  graph.edges.forEach(e => {
+  graph.edges.forEach((e) => {
     if (!outgoing.has(e.source)) outgoing.set(e.source, []);
     outgoing.get(e.source)!.push(e);
   });
@@ -390,73 +463,78 @@ export const displayGraphReport = (graph: BasisGraphJSON) => {
     occurrences: number;
   };
 
-  const eventGroups: Group[] = graph.eventGroups.map(g => ({
+  const eventGroups: Group[] = graph.eventGroups.map((g) => ({
     sourceIds: g.sourceIds,
     sourceNode: nodeById.get(g.sourceIds[0]),
     edges: g.edges,
-    occurrences: g.occurrences
+    occurrences: g.occurrences,
   }));
 
-  const groupedSourceIds = new Set(graph.eventGroups.flatMap(g => g.sourceIds));
+  const groupedSourceIds = new Set(graph.eventGroups.flatMap((g) => g.sourceIds));
   const nonEventGroups: Group[] = Array.from(outgoing.keys())
-    .filter(id => !groupedSourceIds.has(id))
-    .map(id => ({ sourceIds: [id], sourceNode: nodeById.get(id), edges: outgoing.get(id)!, occurrences: 1 }));
+    .filter((id) => !groupedSourceIds.has(id))
+    .map((id) => ({
+      sourceIds: [id],
+      sourceNode: nodeById.get(id),
+      edges: outgoing.get(id)!,
+      occurrences: 1,
+    }));
 
   const groups: Group[] = [...eventGroups, ...nonEventGroups].sort(
-    (a, b) => (b.edges.length - a.edges.length) || (b.occurrences - a.occurrences)
+    (a, b) => b.edges.length - a.edges.length || b.occurrences - a.occurrences
   );
 
   console.group(
-    `%c 📊 BASIS | CAUSAL GRAPH %c${graph.nodes.length} nodes · ${graph.edges.length} edges · ${groups.length} sources · buffer window ${graph.bufferWindowSize}`,
+    `%c BASIS | update graph %c${graph.nodes.length} nodes · ${graph.edges.length} edges · ${groups.length} sources · last ${graph.bufferWindowSize} frames`,
     STYLES.headerIdentity,
-    `color: ${THEME.muted}; font-weight: normal; font-style: italic;`
+    `color: ${THEME.muted}; font-weight: normal;`
   );
   console.log(
-    `%cparent → child = observed cause → update. (×N) = times in this window. Event groups with the same fan-out are collapsed.`,
+    `%cparent → child = what we saw cause an update. (×N) = times in this window. Repeat clicks with the same targets are grouped.`,
     STYLES.subText
   );
 
-  groups.forEach(group => {
-    const isEvent = group.sourceNode?.role === 'event';
+  groups.forEach((group) => {
+    const isEvent = group.sourceNode?.role === "event";
     const isCtx = group.sourceNode?.role === SignalRole.CONTEXT;
-    const isFx = group.sourceNode?.role === 'effect';
-    const isUnknown = group.sourceNode?.role === 'unknown';
-    const icon = isEvent ? '⚡' : isCtx ? 'Ω' : isFx ? '↯' : isUnknown ? '?' : '●';
+    const isFx = group.sourceNode?.role === "effect";
+    const isUnknown = group.sourceNode?.role === "unknown";
+    const icon = isEvent ? "•" : isCtx ? "ctx" : isFx ? "fx" : isUnknown ? "?" : "•";
     const color = isEvent ? THEME.solution : isCtx ? THEME.context : THEME.identity;
 
     const fanout = group.edges.length;
     const hits = group.occurrences;
-    const hitLabel = hits > 1 ? ` · ×${hits}` : '';
+    const hitLabel = hits > 1 ? ` · ×${hits}` : "";
 
     const title = isEvent
-      ? `Event · ${fanout} target${fanout === 1 ? '' : 's'}${hitLabel}`
+      ? `click / event · ${fanout} update${fanout === 1 ? "" : "s"}${hitLabel}`
       : formatNode(group.sourceNode, group.sourceIds[0]);
 
     console.groupCollapsed(
       `%c${icon} %c${title}`,
       `color: ${color};`,
-      'font-family: monospace; font-weight: 600;'
+      "font-family: monospace; font-weight: 600;"
     );
 
     group.edges
       .slice()
       .sort((a, b) => b.weight - a.weight)
-      .forEach(edge => {
+      .forEach((edge) => {
         const target = nodeById.get(edge.target);
         const label = formatNode(target, edge.target);
-        const weight = edge.weight > 1 ? ` (×${edge.weight})` : '';
+        const weight = edge.weight > 1 ? ` (×${edge.weight})` : "";
         if (target?.redundant) {
           console.log(
-            `%c  ${label}%c${weight} %credundant`,
+            `%c  ${label}%c${weight} %cmoving with another hook`,
             `color: ${THEME.muted}; font-family: monospace;`,
-            `color: ${THEME.muted}; font-style: italic;`,
+            `color: ${THEME.muted};`,
             `color: ${THEME.problem}; font-weight: bold;`
           );
         } else {
           console.log(
             `%c  ${label}%c${weight}`,
             `color: ${THEME.muted}; font-family: monospace;`,
-            `color: ${THEME.muted}; font-style: italic;`
+            `color: ${THEME.muted};`
           );
         }
       });
@@ -467,16 +545,25 @@ export const displayGraphReport = (graph: BasisGraphJSON) => {
   console.groupEnd();
 };
 
-export const displayViolentBreaker = (label: string, count: number, threshold: number) => {
+export const displayViolentBreaker = (label: string, count: number, _threshold: number) => {
   if (!isWeb) return;
-  const { name } = parseLabel(label);
-  console.group(`%c 🛑 BASIS CRITICAL | CIRCUIT BREAKER `, STYLES.headerProblem);
-  console.error(`INFINITE LOOP DETECTED\nVariable: ${name}\nFrequency: ${count} updates/sec`);
-  console.log(`%cACTION: Update BLOCKED to prevent browser freeze.`, `color: ${THEME.problem}; font-weight: bold;`);
+  const name = displayName(label);
+  console.group(`%c BASIS | loop guard `, STYLES.headerProblem);
+  console.error(
+    `${name} updated ${count} times in one second. Basis stopped recording this path so the tab stays usable.`
+  );
+  console.log(
+    `%cReact may still error on its own. Fix the effect that writes a value it also lists as a dependency.`,
+    `color: ${THEME.muted};`
+  );
   console.groupEnd();
 };
 
 export const displayBootLog = (windowSize: number) => {
   if (!isWeb) return;
-  console.log(`%cBasis%cAuditor%c "Graph Era" (Window: ${windowSize})`, STYLES.basis, STYLES.version, `color: ${THEME.muted}; font-style: italic; margin-left: 8px;`);
+  console.log(
+    `%cBasis%c watching updates (${windowSize}-frame window)`,
+    STYLES.basis,
+    `color: ${THEME.muted}; margin-left: 8px;`
+  );
 };
