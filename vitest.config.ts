@@ -5,10 +5,11 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./vitest.setup.ts'],
+    include: ['tests/**/*.{test,spec}.{ts,tsx}', 'fixtures/**/expect.ts'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html'],
-      exclude: ['dist/**', 'tests/**', 'src/index.ts'],
+      exclude: ['dist/**', 'tests/**', 'fixtures/**', 'src/index.ts'],
     },
   },
 });
