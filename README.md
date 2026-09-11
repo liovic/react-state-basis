@@ -192,7 +192,6 @@ Useful for animation loops, third-party wrappers, and state you already know is 
 - **Privacy:** timing, roles, and update relationships - not state values.
 - **Development:** hot path is fixed-size ring buffers; heavier work runs on idle. Benchmarks in tested scenarios stay under ~1ms per update cycle. Real cost depends on the tree.
 - **Production:** monitoring is off; production entry is a small shim.
-- **Runaway updates:** instrumentation stops itself if the app enters a recursive update loop, so Basis does not keep a frozen tab alive.
 
 [Benchmarks →](https://github.com/liovic/react-state-basis/wiki/Performance)
 

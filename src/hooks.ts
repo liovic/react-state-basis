@@ -84,9 +84,8 @@ export function useState<S>(
   }, [storageKey]);
 
   const setter = reactUseCallback((value: React.SetStateAction<S>) => {
-    if (recordUpdate(storageKey)) {
-      setVal(value);
-    }
+    recordUpdate(storageKey);
+    setVal(value);
   }, [storageKey]);
 
   return [val, setter];
@@ -141,9 +140,8 @@ export function useReducer<R extends React.Reducer<any, any>, I>(
   }, [storageKey]);
 
   const basisDispatch = reactUseCallback((action: GetReducerAction<R>) => {
-    if (recordUpdate(storageKey)) {
-      dispatch(action);
-    }
+    recordUpdate(storageKey);
+    dispatch(action);
   }, [storageKey, dispatch]);
 
   return [state, basisDispatch];
@@ -258,9 +256,8 @@ export function useOptimistic<S, P>(
   );
 
   const addOptimistic = reactUseCallback((payload: P) => {
-    if (recordUpdate(storageKey)) {
-      reactAddOptimistic(payload);
-    }
+    recordUpdate(storageKey);
+    reactAddOptimistic(payload);
   }, [storageKey, reactAddOptimistic]);
 
   return [state, addOptimistic];
@@ -287,9 +284,8 @@ export function useActionState<State, Payload>(
   }, [storageKey]);
 
   const basisDispatch = reactUseCallback((payload: Payload) => {
-    if (recordUpdate(storageKey)) {
-      reactDispatch(payload);
-    }
+    recordUpdate(storageKey);
+    reactDispatch(payload);
   }, [storageKey, reactDispatch]);
 
   return [state, basisDispatch, isPending];
