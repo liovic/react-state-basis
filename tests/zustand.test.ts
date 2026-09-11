@@ -2,6 +2,8 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { __testEngine__ } from '../src/engine';
+import * as UI from '../src/core/logger';
+import { LOOP_THRESHOLD } from '../src/core/constants';
 import { SignalRole } from '../src/core/types';
 import { basisLogger } from '../src/integrations/zustand';
 
@@ -49,6 +51,30 @@ describe('Zustand Integration: basisLogger middleware', () => {
 
     afterEach(() => {
         vi.restoreAllMocks();
+    });
+
+    it('store update still applies if something inside recordUpdate throws', () => {
+        const wrappedConfig = basisLogger(
+            (set) => ({
+                count: 0,
+                increment: () => set((s: any) => ({ count: s.count + 1 })),
+            }),
+            'ThrowyStore'
+        );
+
+        const store = createStore(wrappedConfig as any);
+
+        vi.spyOn(UI, 'displayViolentBreaker').mockImplementation(() => {
+            throw new Error('boom');
+        });
+
+        expect(() => {
+            for (let i = 0; i < LOOP_THRESHOLD + 5; i++) {
+                (store.getState() as any).increment();
+            }
+        }).not.toThrow();
+
+        expect((store.getState() as any).count).toBe(LOOP_THRESHOLD + 5);
     });
 
     it('LAZY REGISTRATION: does not register the store at setup time', () => {

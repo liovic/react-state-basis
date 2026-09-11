@@ -58,11 +58,20 @@ const pruneGraph = () => {
   }
 };
 
+const scheduleFrame = (cb: () => void) => {
+  const raf = (globalThis as { requestAnimationFrame?: (cb: () => void) => number }).requestAnimationFrame;
+  if (typeof raf === 'function') {
+    raf(cb);
+  } else {
+    setTimeout(cb, 16);
+  }
+};
+
 const getEventId = () => {
   if (!activeEventId) {
     activeEventId = `Event_Tick_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
 
-    requestAnimationFrame(() => {
+    scheduleFrame(() => {
       activeEventId = null;
     });
   }
@@ -238,6 +247,17 @@ export const recordUpdate = (label: string): boolean => {
   if (!instance.config.debug) return true;
   if (instance.pausedVariables.has(label)) return false;
 
+  try {
+    return trackUpdate(label);
+  } catch (err) {
+    if (typeof console !== 'undefined' && typeof console.warn === 'function') {
+      console.warn('[basis] recordUpdate failed; instrumentation skipped for this update', err);
+    }
+    return true;
+  }
+};
+
+const trackUpdate = (label: string): boolean => {
   const now = Date.now();
   if (now - instance.lastCleanup > 1000) {
     instance.loopCounters.clear();
@@ -304,7 +324,7 @@ export const recordUpdate = (label: string): boolean => {
 
   if (!instance.isBatching) {
     instance.isBatching = true;
-    requestAnimationFrame(processHeartbeat);
+    scheduleFrame(processHeartbeat);
   }
 
   return true;

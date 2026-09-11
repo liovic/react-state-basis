@@ -550,7 +550,7 @@ export const displayViolentBreaker = (label: string, count: number, _threshold: 
   const name = displayName(label);
   console.group(`%c BASIS | loop guard `, STYLES.headerProblem);
   console.error(
-    `${name} updated ${count} times in one second. Basis stopped recording this path so the tab stays usable.`
+    `${name} updated ${count} times in one second. Basis stopped analyzing this path. React will keep applying updates.`
   );
   console.log(
     `%cReact may still error on its own. Fix the effect that writes a value it also lists as a dependency.`,
