@@ -30,14 +30,20 @@ module.exports = function (babel) {
     ...SYSTEM_HOOKS
   ];
 
-  const isIgnoredFile = (comments) =>
-    comments && comments.some(c => /@?basis-ignore/.test(c.value));
+  const BASIS_IGNORE_DIRECTIVE = /^\s*@basis-ignore\s*$/;
+
+  const isIgnoredFile = (comments, firstNodeStart) =>
+    comments && comments.some(
+      c => c.end <= firstNodeStart && BASIS_IGNORE_DIRECTIVE.test(c.value)
+    );
 
   return {
     name: "babel-plugin-basis-transform",
     visitor: {
       Program(p, state) {
-        if (isIgnoredFile(p.container.comments)) {
+        const firstNode = p.node.body[0];
+        const firstNodeStart = firstNode ? firstNode.start : Infinity;
+        if (isIgnoredFile(p.container.comments, firstNodeStart)) {
           state.basisDisabled = true;
         }
       },

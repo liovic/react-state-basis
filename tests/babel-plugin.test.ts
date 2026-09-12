@@ -160,6 +160,59 @@ describe('babel-plugin-basis-transform', () => {
     expect(out).not.toContain('MyComponent.js -> count');
   });
 
+  describe('#64: @basis-ignore must be an exact, leading directive', () => {
+    it('does NOT trigger on a comment that merely contains the substring "basis-ignore"', () => {
+      const out = run(`
+        // TODO: check if basis-ignore is still needed here
+        import { useState } from 'react';
+        function Comp() {
+          const [count, setCount] = useState(0);
+        }
+      `);
+
+      expect(out).toMatch(/useState\(0, "MyComponent\.js -> count:\d+"\)/);
+      expect(out).toMatch(/react-state-basis/);
+    });
+
+    it('does NOT trigger on a matching comment that appears after the first statement', () => {
+      const out = run(`
+        import { useState } from 'react';
+        function Comp() {
+          // @basis-ignore
+          const [count, setCount] = useState(0);
+        }
+      `);
+
+      expect(out).toMatch(/useState\(0, "MyComponent\.js -> count:\d+"\)/);
+      expect(out).toMatch(/react-state-basis/);
+    });
+
+    it('does NOT trigger on extra trailing text sharing the same comment', () => {
+      const out = run(`
+        // @basis-ignore for now, remove once #64 is fixed
+        import { useState } from 'react';
+        function Comp() {
+          const [count, setCount] = useState(0);
+        }
+      `);
+
+      expect(out).toMatch(/useState\(0, "MyComponent\.js -> count:\d+"\)/);
+    });
+
+    it('still triggers on the exact leading directive with surrounding whitespace', () => {
+      const out = run(`
+        //   @basis-ignore   
+        import { useState } from 'react';
+        function Comp() {
+          const [count, setCount] = useState(0);
+        }
+      `);
+
+      expect(out).toContain('useState(0)');
+      expect(out).not.toContain('MyComponent.js -> count');
+    });
+  });
+
   describe('does not corrupt real React parameters with a label', () => {
     it('leaves a bare useDebugValue(value) untouched -- no label in the formatter slot', () => {
       const out = run(`
