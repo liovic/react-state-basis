@@ -160,19 +160,114 @@ describe('babel-plugin-basis-transform', () => {
     expect(out).not.toContain('MyComponent.js -> count');
   });
 
-  it('routes an aliased import to the wrapped export, but does NOT label the call site', () => {
-    const out = run(`
-      import { useState as useLocalState } from 'react';
-      function Comp() {
-        const [count, setCount] = useLocalState(0);
-      }
-    `);
+  describe('does not corrupt real React parameters with a label', () => {
+    it('leaves a bare useDebugValue(value) untouched -- no label in the formatter slot', () => {
+      const out = run(`
+        import { useDebugValue } from 'react';
+        function useThing(value) {
+          useDebugValue(value);
+        }
+      `);
 
-    expect(out).toMatch(
-      /import\s*{\s*useState as useLocalState\s*}\s*from\s*["']react-state-basis["']/
-    );
+      expect(out).toContain('useDebugValue(value)');
+      expect(out).not.toContain('MyComponent.js ->');
+    });
 
-    expect(out).toContain('useLocalState(0)');
-    expect(out).not.toContain('MyComponent.js -> count');
+    it('does not clobber an explicit useDebugValue formatter function', () => {
+      const out = run(`
+        import { useDebugValue } from 'react';
+        function useThing(value) {
+          useDebugValue(value, (v) => v.toString());
+        }
+      `);
+
+      expect(out).toContain("useDebugValue(value, v => v.toString())");
+      expect(out).not.toContain('MyComponent.js ->');
+    });
+
+    it('leaves a bare useDeferredValue(value) untouched -- no label in the initialValue slot', () => {
+      const out = run(`
+        import { useDeferredValue } from 'react';
+        function Comp({ value }) {
+          const deferred = useDeferredValue(value);
+        }
+      `);
+
+      expect(out).toContain('useDeferredValue(value)');
+      expect(out).not.toContain('MyComponent.js ->');
+    });
+
+    it('does not clobber an explicit useDeferredValue initialValue', () => {
+      const out = run(`
+        import { useDeferredValue } from 'react';
+        function Comp({ value }) {
+          const deferred = useDeferredValue(value, 'initial');
+        }
+      `);
+
+      expect(out).toContain("useDeferredValue(value, 'initial')");
+      expect(out).not.toContain('MyComponent.js ->');
+    });
+
+    it('labels a bare useOptimistic(state) without landing the label in the reducer slot', () => {
+      const out = run(`
+        import { useOptimistic } from 'react';
+        function Comp({ state }) {
+          const [optimisticState, addOptimistic] = useOptimistic(state);
+        }
+      `);
+
+      expect(out).toMatch(
+        /useOptimistic\(state, undefined, "MyComponent\.js -> optimisticState:\d+"\)/
+      );
+    });
+
+    it('preserves an explicit useOptimistic reducer and labels after it', () => {
+      const out = run(`
+        import { useOptimistic } from 'react';
+        function Comp({ state }) {
+          const [optimisticState, addOptimistic] = useOptimistic(state, (s, p) => p);
+        }
+      `);
+
+      expect(out).toMatch(
+        /useOptimistic\(state, \(s, p\) => p, "MyComponent\.js -> optimisticState:\d+"\)/
+      );
+    });
+
+    it('does not redirect useDebugValue or useDeferredValue imports to react-state-basis at all', () => {
+      const out = run(`
+        import { useDebugValue, useDeferredValue, useState } from 'react';
+        function Comp({ value }) {
+          const [count, setCount] = useState(0);
+          const deferred = useDeferredValue(value);
+          useDebugValue(count);
+        }
+      `);
+
+      expect(out).toMatch(
+        /import\s*{\s*useState\s*}\s*from\s*["']react-state-basis["']/
+      );
+      expect(out).toMatch(/useState\(0, "MyComponent\.js -> count:\d+"\)/);
+
+      expect(out).toMatch(
+        /import\s*{\s*useDebugValue,\s*useDeferredValue\s*}\s*from\s*["']react["']/
+      );
+      expect(out).toContain('useDeferredValue(value)');
+      expect(out).toContain('useDebugValue(count)');
+    });
+
+    it('is idempotent for an already-labeled useOptimistic call', () => {
+      const out = run(`
+        import { useOptimistic } from 'react';
+        function Comp({ state }) {
+          const [optimisticState, addOptimistic] = useOptimistic(state, undefined, 'MyComponent -> optimisticState');
+        }
+      `);
+
+      const matches = out.match(/useOptimistic\(/g) || [];
+      expect(matches.length).toBe(1);
+      expect(out).toContain("useOptimistic(state, undefined, 'MyComponent -> optimisticState')");
+    });
   });
 });
