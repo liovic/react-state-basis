@@ -186,6 +186,27 @@ import { useState } from 'react';
 
 A comment placed after the first import, or mixed in with other text (e.g. `// @basis-ignore for now, revisit later`), is not recognized and instrumentation stays on for that file.
 
+Ignore a single hook call: put this on its own comment line, immediately
+above the **call** (not necessarily the `const`). No blank line in between,
+and nothing else on the comment:
+
+```ts
+// @basis-ignore-next-line
+const [ticks, setTicks] = useState(0);
+```
+
+Works the same when the call is on the next line of a split declaration:
+
+```ts
+const [ticks, setTicks] =
+  // @basis-ignore-next-line
+  useState(0);
+```
+
+This does not only skip the label. That call is rewritten to the real React
+hook, so it is not instrumented. Other calls to the same hook in the file
+are unchanged.
+
 Useful for animation loops, third-party wrappers, and state you already know is coupled on purpose.
 
 ---
