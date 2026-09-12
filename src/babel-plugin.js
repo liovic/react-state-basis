@@ -7,7 +7,7 @@ module.exports = function (babel) {
 
   const LOCAL_HOOKS = [
     'useState', 'useReducer', 'useOptimistic', 'useActionState',
-    'useTransition', 'useDeferredValue'
+    'useTransition'
   ];
 
   const PROJECTION_HOOKS = [
@@ -20,7 +20,7 @@ module.exports = function (babel) {
 
   const SYSTEM_HOOKS = [
     'useEffect', 'useLayoutEffect', 'useInsertionEffect',
-    'useRef', 'useId', 'useDebugValue', 'useImperativeHandle', 'useSyncExternalStore'
+    'useRef', 'useId', 'useImperativeHandle', 'useSyncExternalStore'
   ];
 
   const AUDITED_HOOKS = [
@@ -101,16 +101,17 @@ module.exports = function (babel) {
 
         // Group 1: Label at index 1 (Standard 1-arg hooks + createContext)
         if ([
-          'useState', 'useRef', 'useId', 'useDebugValue', 'useDeferredValue',
-          'useTransition', 'useOptimistic', 'createContext'
+          'useState', 'useRef', 'useId',
+          'useTransition', 'createContext'
         ].includes(calleeName)) {
           if (args.length === 0) args.push(t.identifier('undefined'));
           if (args.length === 1) args.push(t.stringLiteral(uniqueLabel));
         }
 
-        // Group 2: Label at index 2 (Dependencies hooks)
+        // Group 2: Label at index 2 (Dependencies hooks + useOptimistic)
         else if ([
-          'useEffect', 'useMemo', 'useLayoutEffect', 'useInsertionEffect', 'useCallback'
+          'useEffect', 'useMemo', 'useLayoutEffect', 'useInsertionEffect', 'useCallback',
+          'useOptimistic'
         ].includes(calleeName)) {
           if (args.length === 1) args.push(t.identifier('undefined'));
           if (args.length === 2) args.push(t.stringLiteral(uniqueLabel));
