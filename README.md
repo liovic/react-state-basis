@@ -177,11 +177,14 @@ Detections use timing, correlation, update order, roles, and graph structure. Va
 
 Intentional sync, drafts, animations, reducers, stores, and coordinated transitions can all produce hits. Use the signal with your knowledge of the app.
 
-Ignore a file:
+Ignore a file: put this as the very first thing in the file, before any imports, on its own comment line - Basis only checks comments that lead the file, and only matches if the comment contains nothing else:
 
 ```ts
 // @basis-ignore
+import { useState } from 'react';
 ```
+
+A comment placed after the first import, or mixed in with other text (e.g. `// @basis-ignore for now, revisit later`), is not recognized and instrumentation stays on for that file.
 
 Useful for animation loops, third-party wrappers, and state you already know is coupled on purpose.
 
