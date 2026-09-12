@@ -213,6 +213,130 @@ describe('babel-plugin-basis-transform', () => {
     });
   });
 
+  describe('#65: @basis-ignore-next-line opts a single call out of instrumentation', () => {
+    it('rewrites the ignored call to a raw React import, leaving other calls instrumented', () => {
+      const out = run(`
+        import { useState } from 'react';
+        function Comp() {
+          const [count, setCount] = useState(0);
+          // @basis-ignore-next-line
+          const [ticks, setTicks] = useState(0);
+        }
+      `);
+
+      expect(out).toMatch(
+        /import\s*{\s*useState\s*}\s*from\s*["']react-state-basis["']/
+      );
+      expect(out).toMatch(/useState\(0, "MyComponent\.js -> count:\d+"\)/);
+
+      const rawImportMatch = out.match(
+        /import\s*{\s*useState as (_?basis_raw_useState\d*)\s*}\s*from\s*["']react["']/
+      );
+      expect(rawImportMatch).not.toBeNull();
+      const rawLocal = rawImportMatch![1];
+      expect(out).toContain(`${rawLocal}(0)`);
+      expect(out).not.toContain(`${rawLocal}(0, "`);
+    });
+
+    it('applies to the call line, not the enclosing statement, on a split declaration', () => {
+      const out = run(`
+        import { useState } from 'react';
+        function Comp() {
+          const [count, setCount] =
+            // @basis-ignore-next-line
+            useState(0);
+        }
+      `);
+
+      expect(out).toMatch(/basis_raw_useState/);
+      expect(out).not.toMatch(/useState\(0, "MyComponent\.js -> count:\d+"\)/);
+    });
+
+    it('leaves an unused basis import behind when the only call to a hook is ignored (known limitation, harmless)', () => {
+      const out = run(`
+        import { useState } from 'react';
+        function Comp() {
+          // @basis-ignore-next-line
+          const [count, setCount] = useState(0);
+        }
+      `);
+
+      expect(out).toMatch(
+        /import\s*{\s*useState\s*}\s*from\s*["']react-state-basis["']/
+      );
+      expect(out).toMatch(/basis_raw_useState/);
+      expect(out).not.toMatch(/useState\(0, "/);
+    });
+
+    it('reuses the same raw import for multiple ignored calls to the same hook', () => {
+      const out = run(`
+        import { useState } from 'react';
+        function Comp() {
+          // @basis-ignore-next-line
+          const [a, setA] = useState(0);
+          // @basis-ignore-next-line
+          const [b, setB] = useState(0);
+        }
+      `);
+
+      const rawImportDecls = out.match(
+        /import\s*{\s*useState as _?basis_raw_useState\d*\s*}\s*from\s*["']react["']/g
+      ) || [];
+      expect(rawImportDecls).toHaveLength(1);
+    });
+
+    it('handles a member-expression call site (React.useState(...))', () => {
+      const out = run(`
+        import * as React from 'react';
+        function Comp() {
+          // @basis-ignore-next-line
+          const [count, setCount] = React.useState(0);
+        }
+      `);
+
+      expect(out).toMatch(/basis_raw_useState/);
+      expect(out).not.toMatch(/React\.useState\(0\)/);
+    });
+
+    it('does NOT trigger when the comment is not on the line immediately above the call', () => {
+      const out = run(`
+        import { useState } from 'react';
+        function Comp() {
+          // @basis-ignore-next-line
+
+          const [count, setCount] = useState(0);
+        }
+      `);
+
+      expect(out).toMatch(/useState\(0, "MyComponent\.js -> count:\d+"\)/);
+      expect(out).not.toMatch(/basis_raw_useState/);
+    });
+
+    it('does NOT trigger on a trailing comment on the same line as the call', () => {
+      const out = run(`
+        import { useState } from 'react';
+        function Comp() {
+          const [count, setCount] = useState(0); // @basis-ignore-next-line
+        }
+      `);
+
+      expect(out).toMatch(/useState\(0, "MyComponent\.js -> count:\d+"\)/);
+      expect(out).not.toMatch(/basis_raw_useState/);
+    });
+
+    it('does NOT trigger on a substring mention of the directive', () => {
+      const out = run(`
+        import { useState } from 'react';
+        function Comp() {
+          // remember to try @basis-ignore-next-line later
+          const [count, setCount] = useState(0);
+        }
+      `);
+
+      expect(out).toMatch(/useState\(0, "MyComponent\.js -> count:\d+"\)/);
+    });
+  });
+
   describe('does not corrupt real React parameters with a label', () => {
     it('leaves a bare useDebugValue(value) untouched -- no label in the formatter slot', () => {
       const out = run(`
