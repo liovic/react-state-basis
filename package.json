@@ -51,10 +51,12 @@
       "import": "./dist/jsx-dev-runtime.mjs",
       "require": "./dist/jsx-dev-runtime.js"
     },
-    "./plugin": "./dist/plugin.js"
+    "./plugin": "./dist/plugin.js",
+    "./swc": "./dist/swc.wasm"
   },
   "scripts": {
-    "build": "tsup",
+    "build:swc": "RUSTFLAGS='-C link-arg=--allow-undefined' cargo build --release --target wasm32-wasip1 --manifest-path swc-plugin/Cargo.toml && mkdir -p dist && cp swc-plugin/target/wasm32-wasip1/release/swc_plugin_react_state_basis.wasm dist/swc.wasm",
+    "build": "tsup && npm run build:swc",
     "prepublishOnly": "npm run build",
     "test": "vitest run --coverage",
     "test:watch": "vitest watch"

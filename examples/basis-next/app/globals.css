@@ -1,0 +1,75 @@
+:root {
+  color-scheme: dark;
+  --bg: #0b0b0f;
+  --card: #16161d;
+  --line: #2a2a35;
+  --text: #ececec;
+  --muted: #9a9aaa;
+  --accent: #7c5cff;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.45 ui-sans-serif, system-ui, sans-serif;
+}
+
+main.labs {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 32px 20px 96px;
+  display: grid;
+  gap: 16px;
+}
+
+.labs h1 {
+  margin: 0;
+  font-size: 28px;
+  letter-spacing: -0.03em;
+}
+
+.labs > p { margin: 0 0 8px; color: var(--muted); }
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 18px 18px 16px;
+  display: grid;
+  gap: 10px;
+}
+
+.card h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.card p { margin: 0; color: var(--muted); font-size: 14px; }
+
+button, input[type='number'] {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: #0f0f14;
+  color: var(--text);
+  border-radius: 10px;
+  padding: 8px 12px;
+  font: inherit;
+}
+
+button {
+  width: fit-content;
+  background: var(--accent);
+  border-color: transparent;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button:hover { filter: brightness(1.08); }
+
+input[type='number'] { width: 120px; }

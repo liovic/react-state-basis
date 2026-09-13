@@ -1,6 +1,7 @@
 node_modules/
 
 dist/
+.next/
 
 coverage/
 
@@ -16,3 +17,7 @@ Thumbs.db
 
 .vscode/
 .idea/
+
+swc-plugin/target/
+*.wasm
+.swc/
