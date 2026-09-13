@@ -45,11 +45,11 @@ The HUD shows individual writes as they happen. The console report looks at the 
 npm i react-state-basis
 ```
 
-### 2. Vite setup
+You keep importing from `react`. A build plugin attaches names so reports are not full of anonymous hooks.
 
-Vite only for now. **Next.js / SWC is not instrumented yet.**
+### 2. Vite
 
-The Babel plugin labels hooks at build time. You keep importing from `react`.
+`vite.config.ts`:
 
 ```ts
 import { defineConfig } from 'vite';
@@ -68,7 +68,7 @@ export default defineConfig({
 });
 ```
 
-### 3. Provider
+Wrap the app:
 
 ```tsx
 import { BasisProvider } from 'react-state-basis';
@@ -81,6 +81,53 @@ root.render(
 ```
 
 `showHUD={false}` keeps diagnostics in the console only.
+
+### 3. Next.js (experimental)
+
+App Router. You must use webpack. Turbopack is the default for both `next dev` and `next build`, and this plugin only works under webpack.
+
+`next.config.ts`:
+
+```ts
+import type { NextConfig } from 'next';
+
+const nextConfig: NextConfig = {
+  experimental: {
+    swcPlugins: [['react-state-basis/swc', {}]],
+  },
+};
+
+export default nextConfig;
+```
+
+`package.json`:
+
+```json
+"dev": "next dev --webpack",
+"build": "next build --webpack"
+```
+
+The provider must be a Client Component:
+
+```tsx
+'use client';
+
+import { BasisProvider } from 'react-state-basis';
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  return (
+    <BasisProvider debug={true} showHUD={true}>
+      {children}
+    </BasisProvider>
+  );
+}
+```
+
+Wrap `{children}` with `<Providers>` in `app/layout.tsx`.
+
+Without `--webpack`, hooks still run but stay anonymous. Files marked `"use server"` (Server Actions) are not instrumented.
+
+Example: [`examples/basis-next`](./examples/basis-next).
 
 ### 4. Try it
 
@@ -177,14 +224,36 @@ Detections use timing, correlation, update order, roles, and graph structure. Va
 
 Intentional sync, drafts, animations, reducers, stores, and coordinated transitions can all produce hits. Use the signal with your knowledge of the app.
 
-Ignore a file: put this as the very first thing in the file, before any imports, on its own comment line - Basis only checks comments that lead the file, and only matches if the comment contains nothing else:
+Ignore a file: put this as the very first thing in the file, before any
+imports, on its own comment line - Basis only checks comments that lead
+the file, and only matches if the comment contains nothing else:
 
 ```ts
 // @basis-ignore
 import { useState } from 'react';
 ```
 
-A comment placed after the first import, or mixed in with other text (e.g. `// @basis-ignore for now, revisit later`), is not recognized and instrumentation stays on for that file.
+A comment placed after the first import, or mixed in with other text
+(e.g. `// @basis-ignore for now, revisit later`), is not recognized and
+instrumentation stays on for that file.
+
+In a Next.js file with a leading `'use client'` / `'use server'`
+directive, the comment can go above the directive or immediately after
+it - both positions are checked:
+
+```ts
+//@basis-ignore
+'use client';
+
+import { useState } from 'react';
+```
+
+```ts
+'use client';
+//@basis-ignore
+
+import { useState } from 'react';
+```
 
 Ignore a single hook call: put this on its own comment line, immediately
 above the **call** (not necessarily the `const`). No blank line in between,

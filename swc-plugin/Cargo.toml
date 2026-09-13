@@ -1,0 +1,17 @@
+[package]
+name = "swc_plugin_react_state_basis"
+version = "0.6.9"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+swc_core = { version = "56", features = ["ecma_plugin_transform"] }
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"
